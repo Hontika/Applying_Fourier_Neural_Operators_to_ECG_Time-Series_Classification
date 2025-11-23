@@ -1,1 +1,3 @@
-unet\
+unet/
+models/base_unet/
+models/unet_fno/
