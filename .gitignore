@@ -3,3 +3,4 @@ models/base_unet/
 models/unet_fno/
 models/att_unet/
 models/att_unet_fno/
+models/resnet1d
