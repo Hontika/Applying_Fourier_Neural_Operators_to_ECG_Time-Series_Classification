@@ -564,7 +564,7 @@ class UNet1DClassifier(nn.Module):
 
 # ## Model 2: 1D U-net + FNO bottleneck
 
-# In[ ]:
+# In[8]:
 
 
 class SpectralConv1d(nn.Module):
@@ -978,14 +978,17 @@ def eval_and_plot(model, loader, name="Model"):
 # In[14]:
 
 
-# Resumable Gridsearch (backend)
+# Resumable Gridsearch (backend) — with training regimes: e40 / e120 / plateau
 
-
-import hashlib, json, time
+import hashlib, json, time, copy
 from pathlib import Path
+from itertools import product
+
+import numpy as np
 import pandas as pd
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 
 # ---- Grid definitions ----
@@ -1000,6 +1003,11 @@ grid_fno = {
     "fno_layers": [1, 2],
 }
 
+# NEW: training regimes layer
+grid_regime = {
+    "train_regime": ["e40", "e120", "plateau"]
+}
+
 
 # ---- Model directories ----
 MODELS_DIR = Path("models") / DATASET_NAME
@@ -1010,9 +1018,10 @@ MODEL_DIRS = {
     "unet_fno":     MODELS_DIR / "unet_fno",
     "att_unet":     MODELS_DIR / "att_unet",
     "att_unet_fno": MODELS_DIR / "att_unet_fno",
-    "resnet1d":     MODELS_DIR / "resnet1d",   # NEW
+    "resnet1d":     MODELS_DIR / "resnet1d",
 }
 
+# Create base model family dirs only; regime dirs created on-demand
 for d in MODEL_DIRS.values():
     d.mkdir(parents=True, exist_ok=True)
 
@@ -1039,15 +1048,17 @@ def load_completed_keys():
         return set(df["config_key"].astype(str))
     completed = set()
     # fallback for earlier CSVs without config_key
-    use = ["base","lr","weight_decay","dropout","modes","fno_layers"]
+    use = ["base","lr","weight_decay","dropout","modes","fno_layers","train_regime"]
     for _, row in df.iterrows():
         cfg = {k: row[k] for k in use if k in row and pd.notna(row[k])}
         completed.add(make_config_key(row["model_type"], cfg))
     return completed
 
 
-def next_run_dir(model_type):
-    parent = MODEL_DIRS[model_type]
+def next_run_dir(model_type, train_regime):
+    parent = MODEL_DIRS[model_type] / str(train_regime)
+    parent.mkdir(parents=True, exist_ok=True)
+
     runs = sorted([p for p in parent.glob("run_*") if p.is_dir()])
     rid = len(runs) + 1
     rd = parent / f"run_{rid:03d}"
@@ -1056,7 +1067,9 @@ def next_run_dir(model_type):
 
 
 def save_run(model, model_type, cfg, metrics):
-    rd, rid = next_run_dir(model_type)
+    train_regime = cfg.get("train_regime", "e40")
+
+    rd, rid = next_run_dir(model_type, train_regime)
 
     torch.save(model.state_dict(), rd/"model.pt")
     (rd/"config.json").write_text(json.dumps(cfg, indent=2))
@@ -1065,7 +1078,9 @@ def save_run(model, model_type, cfg, metrics):
     row = {
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
         "model_type": model_type,
+        "train_regime": str(train_regime),
         "run_id": rid,
+        "run_dir": str(rd.as_posix()),  # NEW: explicit path (helps evaluation later)
         "config_key": make_config_key(model_type, cfg),
         **cfg,
         **metrics,
@@ -1076,7 +1091,6 @@ def save_run(model, model_type, cfg, metrics):
         df.to_csv(LEADERBOARD_PATH, mode="a", header=False, index=False)
     else:
         df.to_csv(LEADERBOARD_PATH, index=False)
-
 
 
 # ---- Build model from config ----
@@ -1095,44 +1109,183 @@ def build_model(model_type, cfg):
             1, cfg["base"], num_classes,
             cfg["modes"], cfg["fno_layers"], cfg["dropout"]
         )
-    if model_type == "resnet1d":  # NEW
+    if model_type == "resnet1d":
         return ResNet1DClassifier(
-            in_ch=1,
-            base=cfg["base"],
-            num_classes=num_classes,
-            dropout=cfg["dropout"],
+            in_ch=1, base=cfg["base"], num_classes=num_classes, dropout=cfg["dropout"]
         )
     raise ValueError(model_type)
 
 
+# ===========================================================
+# Plateau definition & training
+# ===========================================================
+
+def train_one_epoch(model, loader, optimizer, device):
+    model.train()
+    total_loss, correct, total = 0.0, 0, 0
+    for xb, yb in loader:
+        xb, yb = xb.to(device), yb.to(device)
+        optimizer.zero_grad(set_to_none=True)
+        logits = model(xb)
+        loss = F.cross_entropy(logits, yb)
+        loss.backward()
+        optimizer.step()
+
+        total_loss += loss.item() * xb.size(0)
+        pred = logits.argmax(1)
+        correct += (pred == yb).sum().item()
+        total += xb.size(0)
+
+    return total_loss / max(total, 1), correct / max(total, 1)
+
+
+@torch.no_grad()
+def eval_epoch(model, loader, device):
+    model.eval()
+    total_loss, correct, total = 0.0, 0, 0
+    for xb, yb in loader:
+        xb, yb = xb.to(device), yb.to(device)
+        logits = model(xb)
+        loss = F.cross_entropy(logits, yb)
+
+        total_loss += loss.item() * xb.size(0)
+        pred = logits.argmax(1)
+        correct += (pred == yb).sum().item()
+        total += xb.size(0)
+
+    return total_loss / max(total, 1), correct / max(total, 1)
+
+
+def fit_regime(
+    model,
+    train_loader,
+    val_loader,
+    *,
+    lr,
+    weight_decay,
+    device,
+    train_regime,
+    # plateau controls:
+    min_epochs_plateau=40,
+    max_epochs_plateau=300,
+    patience=20,
+    loss_min_delta=1e-4,
+    acc_min_delta=1e-4,
+):
+    """
+    TRAINING REGIMES:
+      - e40: train exactly 40 epochs
+      - e120: train exactly 120 epochs
+      - plateau: train until BOTH val_loss and val_acc plateau (patience),
+                 with min_epochs and max_epochs guards.
+
+    Returns:
+      model (restored to best checkpoint), history dict, best_info dict
+    """
+
+    if train_regime == "e40":
+        max_epochs = 40
+        do_plateau = False
+    elif train_regime == "e120":
+        max_epochs = 120
+        do_plateau = False
+    elif train_regime == "plateau":
+        max_epochs = max_epochs_plateau
+        do_plateau = True
+    else:
+        raise ValueError(f"Unknown train_regime: {train_regime}")
+
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
+
+    history = {"train_loss": [], "train_acc": [], "val_loss": [], "val_acc": []}
+
+    # best checkpoint selection (primary: val_acc, tie-breaker: val_loss)
+    best_state = copy.deepcopy(model.state_dict())
+    best_val_acc = -1.0
+    best_val_loss = float("inf")
+    best_epoch = 0
+
+    # plateau counter counts epochs with NO meaningful improvement in BOTH metrics
+    bad_epochs = 0
+
+    for epoch in range(1, max_epochs + 1):
+        tr_loss, tr_acc = train_one_epoch(model, train_loader, optimizer, device)
+        va_loss, va_acc = eval_epoch(model, val_loader, device)
+
+        history["train_loss"].append(tr_loss)
+        history["train_acc"].append(tr_acc)
+        history["val_loss"].append(va_loss)
+        history["val_acc"].append(va_acc)
+
+        # Improvement definitions:
+        acc_improved  = (va_acc  > best_val_acc  + acc_min_delta)
+        loss_improved = (va_loss < best_val_loss - loss_min_delta)
+
+        # Save best checkpoint if:
+        #  - val_acc improves meaningfully, OR
+        #  - val_acc is essentially tied but val_loss improves meaningfully
+        if acc_improved or (abs(va_acc - best_val_acc) <= acc_min_delta and loss_improved):
+            best_val_acc = va_acc
+            best_val_loss = va_loss
+            best_epoch = epoch
+            best_state = copy.deepcopy(model.state_dict())
+
+        # Plateau stopping:
+        if do_plateau and epoch >= min_epochs_plateau:
+            if (not acc_improved) and (not loss_improved):
+                bad_epochs += 1
+            else:
+                bad_epochs = 0
+
+            if bad_epochs >= patience:
+                break
+
+    model.load_state_dict(best_state)
+
+    best_info = {
+        "best_epoch": int(best_epoch),
+        "best_val_acc": float(best_val_acc),
+        "best_val_loss": float(best_val_loss),
+        "epochs_ran": int(len(history["val_acc"])),
+    }
+    return model, history, best_info
 
 
 # ---- Run one config ----
-def run_one(model_type, cfg, epochs=40):
-    model = build_model(model_type, cfg)
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    # Train with validation
-    model, _ = fit(
+def run_one(model_type, cfg):
+    model = build_model(model_type, cfg).to(device)
+
+    train_regime = cfg.get("train_regime", "e40")
+
+    model, history, best_info = fit_regime(
         model,
         train_loader,
-        val_loader,  # IMPORTANT: use validation loader here
-        epochs=epochs,
+        val_loader,
         lr=cfg["lr"],
         weight_decay=cfg["weight_decay"],
+        device=device,
+        train_regime=train_regime,
+        min_epochs_plateau=40,
+        max_epochs_plateau=300,
+        patience=20,
+        loss_min_delta=1e-4,
+        acc_min_delta=1e-4,
     )
 
-    crit = nn.CrossEntropyLoss()
-
-    # Validation metrics (for logging / model selection insight)
-    val_loss, val_acc, _, _ = eval_model(model, val_loader, crit)
-
-    # Test metrics (for final performance)
-    test_loss, test_acc, _, _ = eval_model(model, test_loader, crit)
+    # TEST metrics on best-val checkpoint
+    test_loss, test_acc = eval_epoch(model, test_loader, device)
 
     metrics = {
-        "val_acc": float(val_acc),
+        "train_regime": str(train_regime),
+        "epochs_ran": int(best_info["epochs_ran"]),
+        "best_epoch": int(best_info["best_epoch"]),
+        "best_val_acc": float(best_info["best_val_acc"]),
+        "best_val_loss": float(best_info["best_val_loss"]),
+        "val_acc": float(best_info["best_val_acc"]),  # compatibility
         "test_acc": float(test_acc),
-        "epochs": epochs,
+        "test_loss": float(test_loss),
         "params_million": sum(p.numel() for p in model.parameters()) / 1e6,
     }
 
@@ -1140,23 +1293,30 @@ def run_one(model_type, cfg, epochs=40):
     return metrics
 
 
-
-
-
 # ---- Configs per model type ----
 def get_cfgs_for_type(model_type):
     shared = expand_grid(grid_shared)
+    regimes = expand_grid(grid_regime)
+
+    def attach_regimes(cfg_list):
+        out = []
+        for c in cfg_list:
+            for r in regimes:
+                cc = dict(c)
+                cc.update(r)
+                out.append(cc)
+        return out
+
     if model_type in ["base_unet", "att_unet", "resnet1d"]:
-        # models without FNO-specific params
-        return shared
-    else:  # FNO models
+        return attach_regimes(shared)
+    else:
         fno = expand_grid(grid_fno)
         cfgs = []
         for s in shared:
             for f in fno:
-                c = dict(s); c.update(f); cfgs.append(c)
-        return cfgs
-
+                c = dict(s); c.update(f)
+                cfgs.append(c)
+        return attach_regimes(cfgs)
 
 
 def count_remaining_configs(model_type):
@@ -1165,9 +1325,8 @@ def count_remaining_configs(model_type):
     return sum(1 for cfg in cfgs if make_config_key(model_type, cfg) not in done)
 
 
-
 # ---- Resumable Gridsearch (widget compatible) ----
-def grid_search_resumable(model_type, epochs=40, on_run_done=None):
+def grid_search_resumable(model_type, on_run_done=None):
     done_keys = load_completed_keys()
     cfgs = get_cfgs_for_type(model_type)
 
@@ -1185,8 +1344,8 @@ def grid_search_resumable(model_type, epochs=40, on_run_done=None):
             continue
 
         ran += 1
-        print(f"\n[{i}/{total}] RUN {model_type} cfg={cfg}")
-        met = run_one(model_type, cfg, epochs)
+        print(f"\n[{i}/{total}] RUN {model_type} regime={cfg['train_regime']} cfg={cfg}")
+        met = run_one(model_type, cfg)
         print("=>", met)
 
         if on_run_done is not None:
@@ -1195,10 +1354,15 @@ def grid_search_resumable(model_type, epochs=40, on_run_done=None):
     print(f"{model_type} new runs={ran}, skipped={skipped}")
 
 
-# In[ ]:
+# In[16]:
 
 
-# ---- Grid search run script (fixed progress bar) ----
+# ---- Grid search run script (fixed progress bar + ETA) ----
+
+import time
+import pandas as pd
+import ipywidgets as widgets
+from IPython.display import display
 
 def make_overall_progress(total_remaining):
     bar = widgets.IntProgress(
@@ -1249,13 +1413,10 @@ def rotate_model_types(model_types, start_type):
 
 
 def run_all_searches_with_eta():
-    # All families you want in the grid
     base_order = ["base_unet", "unet_fno", "att_unet", "att_unet_fno", "resnet1d"]
 
-    # Freeze the set of already-completed configs at the time we start
     initial_done = load_completed_keys()
 
-    # Compute how many configs will *actually* be run in THIS call
     per_family_remaining = {}
     total_to_run = 0
     for mt in base_order:
@@ -1270,7 +1431,6 @@ def run_all_searches_with_eta():
 
     print("Total configs that will run in this call:", total_to_run)
 
-    # If nothing is left, just show the leaderboard and exit
     if total_to_run == 0:
         print("Nothing left to run – all configs are already completed.")
         df = pd.read_csv(LEADERBOARD_PATH, engine="python", on_bad_lines="skip")
@@ -1281,7 +1441,6 @@ def run_all_searches_with_eta():
 
     update_overall = make_overall_progress(total_to_run)
 
-    # Rotate order so we resume from the family we last touched
     last_type = get_last_model_type()
     model_types = rotate_model_types(base_order, last_type)
 
@@ -1294,7 +1453,6 @@ def run_all_searches_with_eta():
     for mt in model_types:
         rem_this = per_family_remaining.get(mt, 0)
 
-        # If this family has nothing new to run, just update sublabel and skip
         if rem_this == 0:
             update_overall(
                 done_so_far,
@@ -1326,13 +1484,7 @@ def run_all_searches_with_eta():
                 )
             )
 
-        # This will only call `callback()` for truly new configs,
-        # so `done_so_far` will end up == total_to_run.
-        grid_search_resumable(
-            mt,
-            epochs=40,
-            on_run_done=callback
-        )
+        grid_search_resumable(mt, on_run_done=callback)
 
     elapsed_total = time.time() - start_time
     update_overall(
@@ -1340,7 +1492,6 @@ def run_all_searches_with_eta():
         f"<b>All searches complete ✅</b><br>Total time: <b>{fmt_seconds(elapsed_total)}</b>"
     )
 
-    # Show leaderboard summary
     df = pd.read_csv(LEADERBOARD_PATH, engine="python", on_bad_lines="skip")
     display(df.sort_values("test_acc", ascending=False).head(10))
 
@@ -1348,7 +1499,7 @@ def run_all_searches_with_eta():
     display(df.sort_values("test_acc", ascending=False).groupby("model_type").head(1))
 
 
-# Call this in the notebook to (re)run the gridsearch with a correct progress bar:
+# Call this in the notebook:
 run_all_searches_with_eta()
 
 
@@ -1356,10 +1507,15 @@ run_all_searches_with_eta()
 
 # ### Stats for the runs
 
-# In[17]:
+# In[ ]:
 
 
-# Evaluate ALL trained models (NO confusion matrices)
+# ===========================================================
+# Evaluate ALL trained models by scanning filesystem (robust)
+#   Writes:
+#     - models/<DATASET_NAME>/eval_stats_all.csv
+#     - models/<DATASET_NAME>/eval_best_per_family_per_regime.csv
+# ===========================================================
 
 import json
 from pathlib import Path
@@ -1369,255 +1525,442 @@ import torch
 from sklearn.metrics import f1_score, balanced_accuracy_score
 import tqdm.auto as tq
 
-def eval_single_model_for_stats(model, test_loader, device="cuda"):
-    """
-    Evaluate a single model on the test set and compute:
-    - accuracy
-    - macro-F1 (over all classes)
-    - balanced accuracy
-    """
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+MODELS_DIR = Path("models") / DATASET_NAME
+EVAL_ALL_PATH  = MODELS_DIR / "eval_stats_all.csv"
+EVAL_BEST_PATH = MODELS_DIR / "eval_best_per_family_per_regime.csv"
+
+# Optional: restrict to known families (recommended). If you add more families later, extend this list.
+KNOWN_FAMILIES = {"base_unet", "unet_fno", "att_unet", "att_unet_fno", "resnet1d"}
+
+
+@torch.no_grad()
+def eval_single_model_for_stats(model, test_loader, device=device):
     model.eval()
     y_true_all, y_pred_all = [], []
-
-    with torch.no_grad():
-        for xb, yb in test_loader:
-            xb, yb = xb.to(device), yb.to(device)
-            preds = model(xb).argmax(1)
-            y_true_all.append(yb.cpu().numpy())
-            y_pred_all.append(preds.cpu().numpy())
+    for xb, yb in test_loader:
+        xb, yb = xb.to(device), yb.to(device)
+        preds = model(xb).argmax(1)
+        y_true_all.append(yb.cpu().numpy())
+        y_pred_all.append(preds.cpu().numpy())
 
     y_true = np.concatenate(y_true_all)
     y_pred = np.concatenate(y_pred_all)
 
-    # Explicitly specify labels and zero_division for stability
     label_ids = np.arange(num_classes)
 
-    acc      = float((y_true == y_pred).mean())
-    macro_f1 = float(
-        f1_score(
-            y_true, y_pred,
-            labels=label_ids,
-            average="macro",
-            zero_division=0,
-        )
-    )
-    bal_acc  = float(
-        balanced_accuracy_score(
-            y_true, y_pred
-        )
-    )
-
+    acc = float((y_true == y_pred).mean())
+    macro_f1 = float(f1_score(y_true, y_pred, labels=label_ids, average="macro", zero_division=0))
+    bal_acc = float(balanced_accuracy_score(y_true, y_pred))
     return acc, macro_f1, bal_acc
 
 
-def evaluate_all_models_stats():
-    # IMPORTANT: dataset-scoped models directory
-    MODELS_DIR = Path("models") / DATASET_NAME
+def iter_run_dirs(models_dir: Path):
+    """
+    Yields tuples: (family, regime, run_dir)
+    for run_dir matching:
+      models/<dataset>/<family>/<regime>/run_XXX
+    """
+    if not models_dir.exists():
+        return
 
-    families = ["base_unet", "unet_fno", "att_unet", "att_unet_fno", "resnet1d"]
-    rows = []
-
-    # Count models robustly
-    total_models = 0
-    for f in families:
-        fam_dir = MODELS_DIR / f
-        if fam_dir.exists():
-            total_models += len([d for d in fam_dir.glob("run_*") if d.is_dir()])
-
-    print("Models directory:", MODELS_DIR.resolve())
-    print("Found total trained models:", total_models)
-
-    if total_models == 0:
-        raise RuntimeError(
-            f"No trained runs found under {MODELS_DIR}. "
-            f"Expected structure like: models/{DATASET_NAME}/base_unet/run_XXX/"
-        )
-
-    pbar = tq.tqdm(total=total_models, desc=f"Evaluating models ({DATASET_NAME})")
-
-    for family in families:
-        fam_dir = MODELS_DIR / family
-        if not fam_dir.exists():
+    for family_dir in sorted([p for p in models_dir.iterdir() if p.is_dir()]):
+        family = family_dir.name.strip()
+        if KNOWN_FAMILIES and family not in KNOWN_FAMILIES:
             continue
 
-        runs = sorted([d for d in fam_dir.glob("run_*") if d.is_dir()])
+        # regime dirs inside each family
+        for regime_dir in sorted([p for p in family_dir.iterdir() if p.is_dir()]):
+            regime = regime_dir.name.strip()
 
-        for r in runs:
-            config_path  = r / "config.json"
-            metrics_path = r / "metrics.json"
-            weights_path = r / "model.pt"
+            # runs inside each regime
+            for run_dir in sorted([p for p in regime_dir.glob("run_*") if p.is_dir()]):
+                yield family, regime, run_dir
 
-            if not (config_path.exists() and weights_path.exists()):
-                pbar.update(1)
-                continue
 
-            # Load config
-            with open(config_path, "r") as f:
-                cfg = json.load(f)
+def evaluate_all_models_stats_filesystem():
+    run_items = list(iter_run_dirs(MODELS_DIR))
+    print("Scanning:", MODELS_DIR.resolve())
+    print("Found run folders:", len(run_items))
 
-            # Load model
-            model = build_model(family, cfg)
-            state = torch.load(weights_path, map_location=device)
-            model.load_state_dict(state)
-            model.to(device)
+    if len(run_items) == 0:
+        raise RuntimeError(
+            f"No runs found under {MODELS_DIR}. Expected models/<dataset>/<family>/<regime>/run_XXX/"
+        )
 
-            # Evaluate on TEST set
-            acc, macro_f1, bal_acc = eval_single_model_for_stats(
-                model, test_loader, device
-            )
+    rows = []
+    pbar = tq.tqdm(total=len(run_items), desc=f"Evaluating runs ({DATASET_NAME})")
 
-            row = {
-                "family": family,
-                "run_id": r.name,
-                **cfg,
-                "test_acc": acc,
-                "macro_f1": macro_f1,
-                "balanced_acc": bal_acc,
-            }
+    for family, regime, run_dir in run_items:
+        cfg_path = run_dir / "config.json"
+        weights_path = run_dir / "model.pt"
+        metrics_path = run_dir / "metrics.json"
 
-            # Add extra metrics from metrics.json
-            if metrics_path.exists():
-                with open(metrics_path, "r") as f:
-                    saved_metrics = json.load(f)
-
-                if "params_million" in saved_metrics:
-                    row["params_million"] = saved_metrics["params_million"]
-                if "val_acc" in saved_metrics:
-                    row["val_acc"] = saved_metrics["val_acc"]
-
-            rows.append(row)
+        if not (cfg_path.exists() and weights_path.exists()):
             pbar.update(1)
+            continue
+
+        # Load config
+        with open(cfg_path, "r") as f:
+            cfg = json.load(f)
+
+        # Prefer config regime, but directory regime is authoritative
+        cfg["train_regime"] = cfg.get("train_regime", regime)
+
+        # Build + load model
+        model = build_model(family, cfg)
+        state = torch.load(weights_path, map_location=device)
+        model.load_state_dict(state)
+        model.to(device)
+
+        # Evaluate
+        acc, macro_f1, bal_acc = eval_single_model_for_stats(model, test_loader, device)
+
+        out = {
+            "family": family,
+            "train_regime": str(regime),
+            "run_dir": str(run_dir.as_posix()),
+            "run_id": run_dir.name,  # run_XXX
+            **cfg,
+            "test_acc": acc,
+            "macro_f1": macro_f1,
+            "balanced_acc": bal_acc,
+        }
+
+        # Attach saved metrics if present (helps tables/plots)
+        if metrics_path.exists():
+            try:
+                with open(metrics_path, "r") as f:
+                    saved = json.load(f)
+                for k in ["params_million", "val_acc", "best_epoch", "epochs_ran", "best_val_acc", "best_val_loss", "test_loss"]:
+                    if k in saved:
+                        out[k] = saved[k]
+            except Exception:
+                pass
+
+        rows.append(out)
+        pbar.update(1)
 
     pbar.close()
 
-    df = pd.DataFrame(rows)
+    df_all = pd.DataFrame(rows)
+    df_all.to_csv(EVAL_ALL_PATH, index=False)
+    print("Saved:", EVAL_ALL_PATH)
 
-    out_path = MODELS_DIR / "eval_stats.csv"
-    df.to_csv(out_path, index=False)
-    print("Saved:", out_path)
+    # Best per family per regime (your requirement)
+    df_best = (
+        df_all.sort_values("macro_f1", ascending=False)
+              .groupby(["train_regime", "family"], as_index=False)
+              .head(1)
+              .reset_index(drop=True)
+    )
+    df_best.to_csv(EVAL_BEST_PATH, index=False)
+    print("Saved:", EVAL_BEST_PATH)
 
-    return df.sort_values("macro_f1", ascending=False)
+    print("Families present:", sorted(df_all["family"].unique().tolist()))
+    print("Regimes present:", sorted(df_all["train_regime"].unique().tolist()))
 
-
-
-df_stats = evaluate_all_models_stats()
-df_stats
-
-
-# In[18]:
-
-
-# Create a CSV with top 5 models per family (dataset-scoped)
-
-import pandas as pd
-from pathlib import Path
-
-def make_top5_per_family():
-    MODELS_DIR = Path("models") / DATASET_NAME
-    stats_path = MODELS_DIR / "eval_stats.csv"
-
-    if not stats_path.exists():
-        raise FileNotFoundError(f"eval_stats.csv not found at: {stats_path}")
-
-    df = pd.read_csv(stats_path)
-
-    families = ["base_unet", "unet_fno", "att_unet", "att_unet_fno", "resnet1d"]
-    top_rows = []
-
-    for fam in families:
-        sub = df[df["family"] == fam]
-        if sub.empty:
-            print(f"Warning: No runs found for {fam}")
-            continue
-
-        top5 = sub.sort_values("macro_f1", ascending=False).head(5)
-        top_rows.append(top5)
-
-    if not top_rows:
-        raise RuntimeError(f"No families had any models to select in {stats_path}")
-
-    out_df = pd.concat(top_rows, ignore_index=True)
-
-    out_path = MODELS_DIR / "top5_per_family.csv"
-    out_df.to_csv(out_path, index=False)
-    print("Saved:", out_path)
-
-    return out_df.sort_values(["family", "macro_f1"], ascending=[True, False])
+    return df_all, df_best
 
 
-df_top5 = make_top5_per_family()
-df_top5
+df_eval_all, df_best_per_regime = evaluate_all_models_stats_filesystem()
+df_best_per_regime
 
 
 # In[ ]:
 
 
+# ===========================================================
+# Create top-5 per (regime, family)
+#   -> models/<DATASET_NAME>/top5_per_family_per_regime.csv
+# ===========================================================
+
 import pandas as pd
 from pathlib import Path
 
-df = pd.read_csv("models/eval_stats.csv")
+MODELS_DIR = Path("models") / DATASET_NAME
+EVAL_ALL_PATH = MODELS_DIR / "eval_stats_all.csv"
+OUT_PATH = MODELS_DIR / "top5_per_family_per_regime.csv"
 
-# Example: pick the best ResNet1D run
-best_resnet = df[df["family"] == "resnet1d"].sort_values("macro_f1", ascending=False).iloc[0]
-p_ref = best_resnet["params_million"]
+def make_top5_per_family_per_regime(metric="macro_f1", k=5):
+    if not EVAL_ALL_PATH.exists():
+        raise FileNotFoundError(f"Missing: {EVAL_ALL_PATH}. Run evaluation first.")
 
-# Filter other families to those within ±10% of ResNet params
-tol = 0.10  # 10%
-mask = (df["params_million"] >= p_ref * (1 - tol)) & \
-       (df["params_million"] <= p_ref * (1 + tol))
+    df = pd.read_csv(EVAL_ALL_PATH)
 
-df_close = df[mask]
+    needed = {"family", "train_regime", metric}
+    if not needed.issubset(df.columns):
+        raise RuntimeError(f"eval_stats_all.csv missing required columns: {needed - set(df.columns)}")
 
-# From df_close, you can then pick the best per family
-families = ["base_unet", "unet_fno", "att_unet", "att_unet_fno", "resnet1d"]
-best_param_matched = []
-for fam in families:
-    sub = df_close[df_close["family"] == fam]
-    if len(sub):
-        best_param_matched.append(sub.sort_values("macro_f1", ascending=False).iloc[0])
+    # Top-k per (regime, family)
+    top = (
+        df.sort_values(metric, ascending=False)
+          .groupby(["train_regime", "family"], as_index=False)
+          .head(k)
+          .reset_index(drop=True)
+    )
 
-best_param_matched = pd.DataFrame(best_param_matched)
-best_param_matched
+    top.to_csv(OUT_PATH, index=False)
+    print("Saved:", OUT_PATH)
+    return top
+
+df_top5_regime = make_top5_per_family_per_regime()
+df_top5_regime.head(20)
+
+
+# In[ ]:
+
+
+# ===========================================================
+# Compare regimes within each family (using best per regime)
+#   Table + quick plot (macro-F1)
+# ===========================================================
+
+import pandas as pd
+import matplotlib.pyplot as plt
+from pathlib import Path
+
+MODELS_DIR = Path("models") / DATASET_NAME
+BEST_REGIME_PATH = MODELS_DIR / "eval_best_per_family_per_regime.csv"
+
+df_best_regime = pd.read_csv(BEST_REGIME_PATH)
+
+# Pivot table: rows=family, cols=regime, values=macro_f1
+pivot = df_best_regime.pivot_table(
+    index="family",
+    columns="train_regime",
+    values="macro_f1",
+    aggfunc="max"
+).sort_index()
+
+display(pivot)
+
+# Plot: one subplot per family (clean + readable)
+families = list(pivot.index)
+n = len(families)
+fig_h = max(4, 1.2 * n)
+
+plt.figure(figsize=(10, fig_h))
+for i, fam in enumerate(families):
+    vals = pivot.loc[fam].dropna()
+    xs = list(vals.index)
+    ys = list(vals.values)
+    plt.plot(xs, ys, marker="o", label=fam)
+
+plt.title("Best Macro-F1 per Regime (within each family)")
+plt.ylabel("Macro-F1")
+plt.xlabel("Training Regime")
+plt.grid(alpha=0.3)
+plt.legend(bbox_to_anchor=(1.02, 1), loc="upper left")
+plt.tight_layout()
+plt.show()
+
+
+# In[ ]:
+
+
+# ===========================================================
+# Best overall per family (best regime picked per family)
+#   -> models/<DATASET_NAME>/eval_best_overall_per_family.csv
+# ===========================================================
+
+import pandas as pd
+from pathlib import Path
+
+MODELS_DIR = Path("models") / DATASET_NAME
+BEST_REGIME_PATH = MODELS_DIR / "eval_best_per_family_per_regime.csv"
+OUT_PATH = MODELS_DIR / "eval_best_overall_per_family.csv"
+
+df_best_regime = pd.read_csv(BEST_REGIME_PATH)
+
+best_overall = (
+    df_best_regime.sort_values("macro_f1", ascending=False)
+                  .groupby("family", as_index=False)
+                  .head(1)
+                  .reset_index(drop=True)
+)
+
+best_overall.to_csv(OUT_PATH, index=False)
+print("Saved:", OUT_PATH)
+
+best_overall
+
+
+# In[ ]:
+
+
+# ===========================================================
+# Param-matched best models (ALL runs, cross-family)
+# Adds reference metrics in each row for direct comparison
+#
+# Output:
+#   models/<DATASET_NAME>/param_matched_cross_family.csv
+# ===========================================================
+
+import pandas as pd
+from pathlib import Path
+import numpy as np
+
+MODELS_DIR = Path("models") / DATASET_NAME
+ALL_PATH = MODELS_DIR / "eval_stats_all.csv"
+OUT_PATH = MODELS_DIR / "param_matched_cross_family.csv"
+
+TOL = 0.10  # ±10%
+
+df = pd.read_csv(ALL_PATH)
+
+required = {"family", "macro_f1", "balanced_acc", "test_acc", "params_million", "train_regime", "run_dir"}
+missing = required - set(df.columns)
+if missing:
+    raise RuntimeError(f"eval_stats_all.csv missing required columns: {missing}")
+
+# Clean + ensure numeric
+df = df.copy()
+df["family"] = df["family"].astype(str).str.strip()
+df["train_regime"] = df["train_regime"].astype(str).str.strip()
+df["params_million"] = pd.to_numeric(df["params_million"], errors="coerce")
+df["macro_f1"] = pd.to_numeric(df["macro_f1"], errors="coerce")
+df["balanced_acc"] = pd.to_numeric(df["balanced_acc"], errors="coerce")
+df["test_acc"] = pd.to_numeric(df["test_acc"], errors="coerce")
+
+df = df.dropna(subset=["params_million", "macro_f1", "balanced_acc"])
+
+families = sorted(df["family"].unique().tolist())
+
+# Best run overall per family (reference points)
+best_overall = (
+    df.sort_values("macro_f1", ascending=False)
+      .groupby("family", as_index=False)
+      .head(1)
+      .reset_index(drop=True)
+)
+
+rows = []
+
+for _, ref in best_overall.iterrows():
+    ref_family = ref["family"]
+    ref_params = float(ref["params_million"])
+    lo, hi = ref_params * (1 - TOL), ref_params * (1 + TOL)
+
+    ref_pack = {
+        "reference_family": ref_family,
+        "ref_params_million": ref_params,
+        "ref_macro_f1": float(ref["macro_f1"]),
+        "ref_balanced_acc": float(ref["balanced_acc"]),
+        "ref_test_acc": float(ref["test_acc"]) if "test_acc" in ref else np.nan,
+        "ref_train_regime": ref.get("train_regime", "unknown"),
+        "ref_run_dir": ref.get("run_dir", ""),
+    }
+
+    # Reference row (self)
+    rows.append({
+        **ref_pack,
+        "target_family": ref_family,
+        "matched": True,
+        "target_params_million": ref_params,
+        "param_ratio": 1.0,
+        "macro_f1": float(ref["macro_f1"]),
+        "balanced_acc": float(ref["balanced_acc"]),
+        "test_acc": float(ref["test_acc"]) if "test_acc" in ref else np.nan,
+        "train_regime": ref.get("train_regime", "unknown"),
+        "run_dir": ref.get("run_dir", ""),
+    })
+
+    # Match other families
+    for fam in families:
+        if fam == ref_family:
+            continue
+
+        sub = df[df["family"] == fam]
+        sub = sub[(sub["params_million"] >= lo) & (sub["params_million"] <= hi)]
+
+        if sub.empty:
+            rows.append({
+                **ref_pack,
+                "target_family": fam,
+                "matched": False,
+                "target_params_million": np.nan,
+                "param_ratio": np.nan,
+                "macro_f1": np.nan,
+                "balanced_acc": np.nan,
+                "test_acc": np.nan,
+                "train_regime": "",
+                "run_dir": "",
+            })
+            continue
+
+        best_match = sub.sort_values("macro_f1", ascending=False).iloc[0]
+        tparams = float(best_match["params_million"])
+
+        rows.append({
+            **ref_pack,
+            "target_family": fam,
+            "matched": True,
+            "target_params_million": tparams,
+            "param_ratio": tparams / ref_params if ref_params > 0 else np.nan,
+            "macro_f1": float(best_match["macro_f1"]),
+            "balanced_acc": float(best_match["balanced_acc"]),
+            "test_acc": float(best_match["test_acc"]) if "test_acc" in best_match else np.nan,
+            "train_regime": best_match.get("train_regime", "unknown"),
+            "run_dir": best_match.get("run_dir", ""),
+        })
+
+out = pd.DataFrame(rows)
+
+# Useful delta columns (optional, but helps reading)
+out["delta_macro_f1"] = out["macro_f1"] - out["ref_macro_f1"]
+out["delta_balanced_acc"] = out["balanced_acc"] - out["ref_balanced_acc"]
+
+out = out.sort_values(
+    ["reference_family", "matched", "macro_f1"],
+    ascending=[True, False, False]
+).reset_index(drop=True)
+
+out.to_csv(OUT_PATH, index=False)
+print("Saved:", OUT_PATH)
+
+cols_show = [
+    "reference_family", "target_family", "matched",
+    "ref_params_million", "target_params_million", "param_ratio",
+    "ref_macro_f1", "macro_f1", "delta_macro_f1",
+    "ref_balanced_acc", "balanced_acc", "delta_balanced_acc",
+    "ref_train_regime", "train_regime",
+]
+out[cols_show]
 
 
 # ### Plots for evaluation
 
-# In[27]:
-
-
-eval_df = pd.read_csv("models/eval_stats.csv")
-top5_df = pd.read_csv("models/top5_per_family.csv")
-
-
 # In[ ]:
 
 
-# Best Macro-F1 per family
+# ===========================================================
+# Plot: Best overall Macro-F1 per family (best regime chosen)
+# ===========================================================
 
 import pandas as pd
 import matplotlib.pyplot as plt
+from pathlib import Path
 
-df = pd.read_csv("models/eval_stats.csv")
+MODELS_DIR = Path("models") / DATASET_NAME
+BEST_OVERALL_PATH = MODELS_DIR / "eval_best_overall_per_family.csv"
 
-families = ["base_unet", "unet_fno", "att_unet", "att_unet_fno", "resnet1d"]
+df = pd.read_csv(BEST_OVERALL_PATH).sort_values("macro_f1", ascending=False)
 
-best_rows = []
-for fam in families:
-    best = df[df["family"] == fam].sort_values("macro_f1", ascending=False).head(1)
-    best_rows.append(best)
-
-best_df = pd.concat(best_rows)
-
-plt.figure(figsize=(8,5))
-plt.bar(best_df["family"], best_df["macro_f1"], color="skyblue")
+plt.figure(figsize=(9,5))
+plt.bar(df["family"], df["macro_f1"])
 plt.ylabel("Macro-F1")
-plt.title("Best Macro-F1 per Model Family")
-plt.xticks(rotation=30)
+plt.title("Best Model per Family (Best Regime Selected)")
+plt.xticks(rotation=30, ha="right")
 plt.grid(axis="y", alpha=0.3)
+plt.tight_layout()
 plt.show()
 
+df[["family","train_regime","macro_f1","balanced_acc","test_acc","params_million","run_dir"]]
 
-# In[28]:
+
+# In[ ]:
 
 
 # Params vs Macro-F1
@@ -1636,344 +1979,438 @@ plt.legend()
 plt.show()
 
 
-# In[29]:
-
-
-# Top-5 Macro-F1 Distribution per Family
-
-import seaborn as sns
-
-top5 = pd.read_csv("models/top5_per_family.csv")
-
-plt.figure(figsize=(10,6))
-sns.boxplot(data=top5, x="family", y="macro_f1", palette="Set2")
-sns.stripplot(data=top5, x="family", y="macro_f1", color="black")
-plt.title("Top-5 Macro-F1 per Model Family")
-plt.xticks(rotation=30)
-plt.grid(axis="y", alpha=0.25)
-plt.show()
-
-
-# In[30]:
+# In[ ]:
 
 
 # ===========================================================
-# Export all evaluation figures to JPGs into figs/
-#   - confusion_grid.jpg
-#   - per_class_f1.jpg
-#   - top5_boxplot.jpg
-#   - params_vs_macroF1.jpg
+# Boxplots: Top-k Macro-F1 per family, per regime
+#   Uses: top5_per_family_per_regime.csv
+# ===========================================================
+
+import pandas as pd
+import matplotlib.pyplot as plt
+from pathlib import Path
+
+MODELS_DIR = Path("models") / DATASET_NAME
+TOP5_REGIME_PATH = MODELS_DIR / "top5_per_family_per_regime.csv"
+
+df = pd.read_csv(TOP5_REGIME_PATH)
+
+for regime in sorted(df["train_regime"].unique()):
+    sub = df[df["train_regime"] == regime]
+
+    plt.figure(figsize=(10,6))
+    sub.boxplot(column="macro_f1", by="family")
+    plt.title(f"Top-5 Macro-F1 per Family — Regime: {regime}")
+    plt.suptitle("")
+    plt.ylabel("Macro-F1")
+    plt.xticks(rotation=30, ha="right")
+    plt.grid(axis="y", alpha=0.3)
+    plt.tight_layout()
+    plt.show()
+
+
+# In[ ]:
+
+
+# ===========================================================
+# Export evaluation figures to JPGs into figs/<DATASET_NAME>/
+#   Selection: BEST per family overall (from eval_stats_all.csv)
+#   No dependence on top5 CSV files.
+#
+# Outputs:
+#   confusion_<family>.jpg                  (one per family, high-res, annotated)
+#   per_class_f1.jpg OR per_class_f1_partXX.jpg
+#   top5_boxplot_overall.jpg
+#   top5_boxplot_per_regime__<regime>.jpg
+#   params_vs_macroF1.jpg
+#   regime_wins_per_family.jpg
+#   best_macroF1_heatmap_family_by_regime.jpg
 # ===========================================================
 
 import json
 from pathlib import Path
-
 import numpy as np
 import pandas as pd
 import torch
 import matplotlib.pyplot as plt
-from sklearn.metrics import f1_score, confusion_matrix, balanced_accuracy_score
+from sklearn.metrics import f1_score, confusion_matrix
 
-# ---------- Paths & setup ----------
-MODELS_DIR = Path("models")
-EVAL_STATS_PATH = MODELS_DIR / "eval_stats.csv"
-TOP5_PATH = MODELS_DIR / "top5_per_family.csv"
+# ---------- Paths ----------
+MODELS_DIR = Path("models") / DATASET_NAME
+EVAL_ALL_PATH = MODELS_DIR / "eval_stats_all.csv"
 FIG_DIR = Path("figs") / DATASET_NAME
 FIG_DIR.mkdir(parents=True, exist_ok=True)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print("Using device:", device)
 
-families = ["base_unet", "unet_fno", "att_unet", "att_unet_fno", "resnet1d"]
+# Families expected (we will filter to those that exist)
+families_order = ["base_unet", "unet_fno", "att_unet", "att_unet_fno", "resnet1d"]
 pretty_names = {
-    "base_unet":     "Base U-Net",
+    "base_unet":     "U-Net",
     "unet_fno":      "U-Net + FNO",
     "att_unet":      "Attention U-Net",
     "att_unet_fno":  "Attention U-Net + FNO",
     "resnet1d":      "ResNet1D",
 }
 
-# ---------- Helper: build model from config ----------
-def build_model_for_eval(family, cfg):
-    """
-    Build correct model instance for a family using saved config.
-    Assumes these classes already exist in the notebook:
-      - UNet1DClassifier
-      - UNetFNO1DClassifier
-      - AttUNet1DClassifier
-      - AttUNetFNO1DClassifier
-      - ResNet1DClassifier
-    And global num_classes is defined.
-    """
-    base = int(cfg.get("base", 32))
-    dropout = float(cfg.get("dropout", 0.0))
-    modes = int(cfg.get("modes", 16)) if "modes" in cfg else 16
-    fno_layers = int(cfg.get("fno_layers", 2)) if "fno_layers" in cfg else 2
+# ---------- Load eval table ----------
+if not EVAL_ALL_PATH.exists():
+    raise FileNotFoundError(f"Missing: {EVAL_ALL_PATH}. Run evaluation first.")
 
-    if family == "base_unet":
-        return UNet1DClassifier(in_ch=1, base=base, num_classes=num_classes, dropout=dropout)
-    elif family == "unet_fno":
-        return UNetFNO1DClassifier(
-            in_ch=1, base=base, num_classes=num_classes,
-            modes=modes, fno_layers=fno_layers, dropout=dropout
-        )
-    elif family == "att_unet":
-        return AttUNet1DClassifier(in_ch=1, base=base, num_classes=num_classes, dropout=dropout)
-    elif family == "att_unet_fno":
-        return AttUNetFNO1DClassifier(
-            in_ch=1, base=base, num_classes=num_classes,
-            modes=modes, fno_layers=fno_layers, dropout=dropout
-        )
-    elif family == "resnet1d":
-        return ResNet1DClassifier(in_ch=1, base=base, num_classes=num_classes, dropout=dropout)
-    else:
-        raise ValueError(f"Unknown family: {family}")
+df_all = pd.read_csv(EVAL_ALL_PATH)
+
+# basic cleanup
+df_all["family"] = df_all["family"].astype(str).str.strip()
+df_all["train_regime"] = df_all["train_regime"].astype(str).str.strip()
+df_all["macro_f1"] = pd.to_numeric(df_all["macro_f1"], errors="coerce")
+df_all["params_million"] = pd.to_numeric(df_all.get("params_million", np.nan), errors="coerce")
+
+df_all = df_all.dropna(subset=["macro_f1"])
+
+fams_available = [f for f in families_order if (df_all["family"] == f).any()]
+if not fams_available:
+    fams_available = sorted(df_all["family"].unique().tolist())
+
+print("Families for plotting:", fams_available)
+print("Regimes seen:", sorted(df_all["train_regime"].dropna().unique().tolist()))
 
 
-# ---------- Helper: load best model per family ----------
-def load_best_model(family, metric="macro_f1"):
-    df = pd.read_csv(EVAL_STATS_PATH)
-    sub = df[df["family"] == family]
-    if sub.empty:
-        raise ValueError(f"No rows found for family '{family}' in eval_stats.csv")
-
-    best_row = sub.sort_values(metric, ascending=False).iloc[0]
-    run_id = best_row["run_id"]
-    run_dir = MODELS_DIR / family / run_id
-
+# ---------- Helpers ----------
+def load_model_from_run_dir(family: str, run_dir: str):
+    run_dir = Path(str(run_dir))
     cfg_path = run_dir / "config.json"
-    weights_path = run_dir / "model.pt"
+    w_path = run_dir / "model.pt"
 
     with open(cfg_path, "r") as f:
         cfg = json.load(f)
 
-    model = build_model_for_eval(family, cfg)
-    state = torch.load(weights_path, map_location=device)
+    model = build_model(family, cfg)
+    state = torch.load(w_path, map_location=device)
     model.load_state_dict(state)
-    model.to(device)
-    model.eval()
+    model.to(device).eval()
+    return model, cfg
 
-    return model, best_row
-
-
-# ---------- Helper: evaluate model (for confusion, stats) ----------
-def evaluate_model_full(model, loader, classes):
-    """
-    Evaluate model on the given loader (test_loader in our use)
-    and return confusion matrix + metrics in a dict.
-    """
-    model.eval()
+@torch.no_grad()
+def predict_all(model, loader):
     y_true_all, y_pred_all = [], []
-
-    with torch.no_grad():
-        for xb, yb in loader:
-            xb, yb = xb.to(device), yb.to(device)
-            preds = model(xb).argmax(1)
-            y_true_all.append(yb.cpu().numpy())
-            y_pred_all.append(preds.cpu().numpy())
-
+    for xb, yb in loader:
+        xb = xb.to(device)
+        logits = model(xb)
+        preds = logits.argmax(1).cpu().numpy()
+        y_pred_all.append(preds)
+        y_true_all.append(yb.numpy())
     y_true = np.concatenate(y_true_all)
     y_pred = np.concatenate(y_pred_all)
+    return y_true, y_pred
 
-    label_ids = np.arange(len(classes))
 
+# ===========================================================
+# Selection: BEST per family overall (by macro_f1)
+# ===========================================================
+df_best_overall = (
+    df_all.sort_values("macro_f1", ascending=False)
+          .groupby("family", as_index=False)
+          .head(1)
+          .reset_index(drop=True)
+)
+
+# keep in our preferred order
+df_best_overall["family"] = pd.Categorical(df_best_overall["family"], fams_available, ordered=True)
+df_best_overall = df_best_overall.sort_values("family")
+
+display(df_best_overall[["family","train_regime","macro_f1","balanced_acc","test_acc","params_million","run_dir"]]
+        if "balanced_acc" in df_best_overall.columns else df_best_overall[["family","train_regime","macro_f1","test_acc","params_million","run_dir"]])
+
+
+# ===========================================================
+# 1) Confusion matrices (one per family, high-res, annotated)
+# ===========================================================
+print("Exporting confusion matrices...")
+
+K = len(classes)
+
+for _, row in df_best_overall.iterrows():
+    fam = str(row["family"])
+    run_dir = row["run_dir"]
+
+    model, _ = load_model_from_run_dir(fam, run_dir)
+    y_true, y_pred = predict_all(model, test_loader)
+
+    label_ids = np.arange(K)
     cm = confusion_matrix(y_true, y_pred, labels=label_ids)
-    acc = float((y_true == y_pred).mean())
-    macro_f1 = float(
-        f1_score(
-            y_true, y_pred,
-            labels=label_ids,
-            average="macro",
-            zero_division=0,
+
+    # ---- sizing: scale with K ----
+    side = max(10.0, min(34.0, 0.70 * K))
+    fig, ax = plt.subplots(figsize=(side, side))
+    im = ax.imshow(cm, cmap="Blues", interpolation="nearest")
+
+    # ticks/fonts
+    tick_fs = 12 if K <= 10 else 10 if K <= 20 else 8 if K <= 40 else 6
+    ax.set_xticks(np.arange(K))
+    ax.set_yticks(np.arange(K))
+    ax.set_xticklabels(classes, rotation=45, ha="right", fontsize=tick_fs)
+    ax.set_yticklabels(classes, fontsize=tick_fs)
+
+    ax.set_xlabel("Predicted", fontsize=14, labelpad=10)
+    ax.set_ylabel("True", fontsize=14, labelpad=10)
+
+    title = f"{pretty_names.get(fam,fam)} — Confusion Matrix\nmacro-F1={row['macro_f1']:.3f} | regime={row.get('train_regime','?')}"
+    ax.set_title(title, fontsize=16, pad=18)
+
+    # minor gridlines
+    ax.set_xticks(np.arange(-.5, K, 1), minor=True)
+    ax.set_yticks(np.arange(-.5, K, 1), minor=True)
+    ax.grid(which="minor", linestyle="-", linewidth=0.35, alpha=0.25)
+    ax.tick_params(which="minor", bottom=False, left=False)
+
+    # ---- annotate EVERY cell (you requested this) ----
+    # font size for numbers scales down with K
+    cell_fs = 10 if K <= 10 else 8 if K <= 20 else 6 if K <= 40 else 4
+    thresh = cm.max() * 0.6 if cm.max() > 0 else 0.0
+
+    for (r, c), val in np.ndenumerate(cm):
+        ax.text(
+            c, r, str(int(val)),
+            ha="center", va="center",
+            fontsize=cell_fs,
+            color="white" if val > thresh else "black"
         )
-    )
-    bal_acc = float(balanced_accuracy_score(y_true, y_pred))
 
-    return {
-        "cm": cm,
-        "acc": acc,
-        "macro_f1": macro_f1,
-        "balanced_acc": bal_acc,
-        "y_true": y_true,
-        "y_pred": y_pred,
-    }
+    # colorbar
+    cbar = fig.colorbar(im, ax=ax, fraction=0.046, pad=0.02)
+    cbar.ax.set_ylabel("Count", rotation=90, fontsize=14)
+    cbar.ax.tick_params(labelsize=12)
 
-
-# ===========================================================
-# 1) Confusion matrix grid  (now supports all 5 families)
-# ===========================================================
-print("Exporting confusion_grid.jpg .")
-
-# Only keep families that actually exist in eval_stats
-df_eval = pd.read_csv(EVAL_STATS_PATH)
-fams_available = [f for f in families if (df_eval["family"] == f).any()]
-
-n_fam = len(fams_available)
-if n_fam == 0:
-    print("No families found in eval_stats.csv, skipping confusion_grid.")
-else:
-    # Dynamic grid: up to 3 columns
-    ncols = min(3, n_fam)
-    nrows = int(np.ceil(n_fam / ncols))
-
-    fig, axes = plt.subplots(nrows, ncols, figsize=(5.5 * ncols, 5.0 * nrows))
-    axes = np.array(axes).reshape(-1)
-    all_images = []
-
-    for i, fam in enumerate(fams_available):
-        ax = axes[i]
-        model, best_row = load_best_model(fam, metric="macro_f1")
-        res = evaluate_model_full(model, test_loader, classes)
-        cm = res["cm"]
-
-        im = ax.imshow(cm, cmap="Blues")
-        all_images.append(im)
-
-        ax.set_title(
-            f"{pretty_names.get(fam, fam)}\nmacro-F1 = {res['macro_f1']:.3f}",
-            fontsize=12, pad=10
-        )
-        ax.set_xticks(np.arange(len(classes)))
-        ax.set_yticks(np.arange(len(classes)))
-        ax.set_xticklabels(classes, rotation=45, ha="right")
-        ax.set_yticklabels(classes)
-        ax.set_xlabel("Predicted")
-        ax.set_ylabel("True")
-
-        thresh = cm.max() * 0.6 if cm.max() > 0 else 0.0
-        for (r, c), val in np.ndenumerate(cm):
-            ax.text(
-                c, r, str(val),
-                ha="center", va="center",
-                fontsize=9,
-                color="white" if val > thresh else "black"
-            )
-
-    # Turn off any unused axes
-    for j in range(n_fam, len(axes)):
-        axes[j].axis("off")
-
-    fig.subplots_adjust(
-        left=0.08,
-        right=0.88,
-        top=0.90,
-        bottom=0.15,
-        wspace=0.35,
-        hspace=0.35,
-    )
-
-    # Colorbar on the far right
-    cbar_ax = fig.add_axes([0.90, 0.20, 0.02, 0.60])
-    fig.colorbar(all_images[-1], cax=cbar_ax)
-
-    fig.suptitle("Confusion Matrices — Best Model per Family", fontsize=16, y=0.98)
-
-    plt.savefig(FIG_DIR / "confusion_grid.jpg", dpi=300, bbox_inches="tight")
+    plt.tight_layout()
+    plt.savefig(FIG_DIR / f"confusion_{fam}.jpg", dpi=450, bbox_inches="tight")
     plt.close(fig)
 
+print("✅ Confusion matrices exported.")
+
 
 # ===========================================================
-# 2) Per-class F1 comparison (includes ResNet if available)
+# 2) Per-class F1 comparison (single if K<=9 else chunked)
 # ===========================================================
-print("Exporting per_class_f1.jpg .")
+print("Exporting per-class F1 plots...")
 
-def compute_per_class_f1(model):
-    model.eval()
-    y_true_all, y_pred_all = [], []
-    with torch.no_grad():
-        for xb, yb in test_loader:
-            xb, yb = xb.to(device), yb.to(device)
-            preds = model(xb).argmax(1)
-            y_true_all.append(yb.cpu().numpy())
-            y_pred_all.append(preds.cpu().numpy())
-    y_true = np.concatenate(y_true_all)
-    y_pred = np.concatenate(y_pred_all)
-    return f1_score(y_true, y_pred, average=None)
+def per_class_f1(model):
+    y_true, y_pred = predict_all(model, test_loader)
+    label_ids = np.arange(K)
+    return f1_score(y_true, y_pred, labels=label_ids, average=None, zero_division=0)
 
-per_class_f1_dict = {}
-for fam in fams_available:
-    try:
-        model, _ = load_best_model(fam, metric="macro_f1")
-    except Exception as e:
-        print(f"Skipping {fam} in per_class_f1: {e}")
-        continue
-    per_class_f1_dict[fam] = compute_per_class_f1(model)
+per_class = {}
+for _, row in df_best_overall.iterrows():
+    fam = str(row["family"])
+    model, _ = load_model_from_run_dir(fam, row["run_dir"])
+    per_class[fam] = per_class_f1(model)
 
-if per_class_f1_dict:
-    x = np.arange(len(classes))
-    width = 0.15
+# Plot logic
+if K <= 9:
+    x = np.arange(K)
+    width = 0.8 / max(len(per_class), 1)
 
     fig, ax = plt.subplots(figsize=(11, 6))
+    for i, fam in enumerate(per_class.keys()):
+        ax.bar(x + i * width, per_class[fam], width, label=pretty_names.get(fam, fam), alpha=0.85)
 
-    for i, fam in enumerate(per_class_f1_dict.keys()):
-        ax.bar(x + i * width, per_class_f1_dict[fam], width, label=pretty_names.get(fam, fam))
-
-    ax.set_xticks(x + width * (len(per_class_f1_dict) - 1) / 2)
-    ax.set_xticklabels(classes, rotation=45)
+    ax.set_xticks(x + width * (len(per_class) - 1) / 2)
+    ax.set_xticklabels(classes, rotation=45, ha="right")
     ax.set_ylabel("F1 Score")
-    ax.set_title("Per-Class F1 Comparison Across Best Models")
-    ax.legend()
+    ax.set_title("Per-Class F1 Comparison (Best Overall per Family)")
     ax.grid(axis="y", alpha=0.3)
-
+    ax.legend()
     plt.tight_layout()
-    plt.savefig(FIG_DIR / "per_class_f1.jpg", dpi=300, bbox_inches="tight")
+    plt.savefig(FIG_DIR / "per_class_f1.jpg", dpi=350, bbox_inches="tight")
     plt.close(fig)
 else:
-    print("No models available to plot per-class F1.")
+    chunk = 5
+    width = 0.8 / max(len(per_class), 1)
+
+    part = 1
+    for start in range(0, K, chunk):
+        end = min(start + chunk, K)
+        idx = np.arange(start, end)
+
+        fig, ax = plt.subplots(figsize=(10, 5))
+        for i, fam in enumerate(per_class.keys()):
+            ax.bar(
+                np.arange(len(idx)) + i * width,
+                per_class[fam][start:end],
+                width=width,
+                label=pretty_names.get(fam, fam),
+                alpha=0.85
+            )
+
+        ax.set_xticks(np.arange(len(idx)) + width * (len(per_class) - 1) / 2)
+        ax.set_xticklabels(classes[start:end], rotation=45, ha="right")
+        ax.set_ylabel("F1 Score")
+        ax.set_title(f"Per-Class F1 (classes {start+1}–{end}) — Best Overall per Family")
+        ax.grid(axis="y", alpha=0.3)
+        ax.legend()
+
+        plt.tight_layout()
+        plt.savefig(FIG_DIR / f"per_class_f1_part{part:02d}.jpg", dpi=350, bbox_inches="tight")
+        plt.close(fig)
+        part += 1
+
+print("✅ Per-class F1 plot(s) exported.")
 
 
 # ===========================================================
-# 3) Top-5 per family boxplot
+# 3) Top-5 boxplots (computed from eval_stats_all.csv)
+#   A) Top-5 per family overall
+#   B) Top-5 per family per regime (one figure per regime)
 # ===========================================================
-print("Exporting top5_boxplot.jpg .")
+print("Exporting top-5 boxplots...")
 
-if TOP5_PATH.exists():
-    top5 = pd.read_csv(TOP5_PATH)
+# A) overall top-5 per family (regimes mixed, but top-5 selected overall)
+top5_overall = (
+    df_all.sort_values("macro_f1", ascending=False)
+          .groupby("family", as_index=False)
+          .head(5)
+          .reset_index(drop=True)
+)
+
+fig, ax = plt.subplots(figsize=(10, 6))
+top5_overall.boxplot(column="macro_f1", by="family", ax=ax)
+ax.set_title("Top-5 Macro-F1 per Family (Overall)")
+ax.set_ylabel("Macro-F1")
+plt.suptitle("")
+plt.xticks(rotation=30, ha="right")
+plt.grid(axis="y", alpha=0.3)
+plt.tight_layout()
+plt.savefig(FIG_DIR / "top5_boxplot_overall.jpg", dpi=350, bbox_inches="tight")
+plt.close(fig)
+
+# B) top-5 per family per regime
+regimes = sorted(df_all["train_regime"].dropna().unique().tolist())
+for reg in regimes:
+    sub = df_all[df_all["train_regime"] == reg]
+    if sub.empty:
+        continue
+
+    top5_reg = (
+        sub.sort_values("macro_f1", ascending=False)
+           .groupby("family", as_index=False)
+           .head(5)
+           .reset_index(drop=True)
+    )
 
     fig, ax = plt.subplots(figsize=(10, 6))
-    top5.boxplot(column="macro_f1", by="family", ax=ax)
-    ax.set_title("Top-5 Macro-F1 per Model Family")
-    ax.set_ylabel("Macro F1")
+    top5_reg.boxplot(column="macro_f1", by="family", ax=ax)
+    ax.set_title(f"Top-5 Macro-F1 per Family — Regime: {reg}")
+    ax.set_ylabel("Macro-F1")
     plt.suptitle("")
-
+    plt.xticks(rotation=30, ha="right")
+    plt.grid(axis="y", alpha=0.3)
     plt.tight_layout()
-    plt.savefig(FIG_DIR / "top5_boxplot.jpg", dpi=300, bbox_inches="tight")
+    plt.savefig(FIG_DIR / f"top5_boxplot_per_regime__{reg}.jpg", dpi=350, bbox_inches="tight")
     plt.close(fig)
-else:
-    print("Warning: top5_per_family.csv not found, skipping top5_boxplot.jpg")
+
+print("✅ Boxplots exported.")
 
 
 # ===========================================================
-# 4) Params vs macro-F1 scatter
+# 4) Params vs Macro-F1 scatter (ALL runs)
 # ===========================================================
-print("Exporting params_vs_macroF1.jpg .")
-
-df_stats = pd.read_csv(EVAL_STATS_PATH)
+print("Exporting params_vs_macroF1.jpg ...")
 
 fig, ax = plt.subplots(figsize=(9, 6))
 
-for fam in families:
-    sub = df_stats[df_stats["family"] == fam]
+for fam in fams_available:
+    sub = df_all[df_all["family"] == fam].dropna(subset=["params_million", "macro_f1"])
     if sub.empty:
         continue
     ax.scatter(
         sub["params_million"],
         sub["macro_f1"],
         label=pretty_names.get(fam, fam),
-        alpha=0.7
+        alpha=0.65
     )
 
 ax.set_xlabel("Params (Millions)")
-ax.set_ylabel("Macro F1")
-ax.set_title("Parameter Count vs Macro-F1")
+ax.set_ylabel("Macro-F1")
+ax.set_title("Parameter Count vs Macro-F1 (All Runs)")
 ax.grid(alpha=0.3)
-ax.legend()
-
+ax.legend(bbox_to_anchor=(1.02, 1), loc="upper left")
 plt.tight_layout()
-plt.savefig(FIG_DIR / "params_vs_macroF1.jpg", dpi=300, bbox_inches="tight")
+plt.savefig(FIG_DIR / "params_vs_macroF1.jpg", dpi=350, bbox_inches="tight")
 plt.close(fig)
 
-print("✅ All plots exported to 'figs/' as JPG files.")
+print("✅ Params vs Macro-F1 exported.")
+
+
+# ===========================================================
+# 5) Regime visualization (which regime wins?)
+#   A) regime_wins_per_family.jpg (bar chart counts)
+#   B) best_macroF1_heatmap_family_by_regime.jpg (heatmap of best macroF1)
+# ===========================================================
+print("Exporting regime comparison visuals...")
+
+# A) Winning regime per family (based on best macro_f1 within that family/regime)
+best_per_fam_reg = (
+    df_all.sort_values("macro_f1", ascending=False)
+          .groupby(["family", "train_regime"], as_index=False)
+          .head(1)
+          .reset_index(drop=True)
+)
+
+# pick winner regime for each family
+winner = (
+    best_per_fam_reg.sort_values("macro_f1", ascending=False)
+                    .groupby("family", as_index=False)
+                    .head(1)
+                    .reset_index(drop=True)
+)
+
+# count wins
+win_counts = winner["train_regime"].value_counts().sort_index()
+
+fig, ax = plt.subplots(figsize=(8, 5))
+ax.bar(win_counts.index.astype(str), win_counts.values)
+ax.set_title("Which Training Regime Wins per Family? (by Macro-F1)")
+ax.set_xlabel("Regime")
+ax.set_ylabel("#Families where regime is best")
+ax.grid(axis="y", alpha=0.3)
+plt.tight_layout()
+plt.savefig(FIG_DIR / "regime_wins_per_family.jpg", dpi=350, bbox_inches="tight")
+plt.close(fig)
+
+# B) Heatmap: best macro-F1 per family × regime
+pivot = best_per_fam_reg.pivot_table(
+    index="family", columns="train_regime", values="macro_f1", aggfunc="max"
+)
+pivot = pivot.reindex(index=fams_available)
+
+fig, ax = plt.subplots(figsize=(10, max(4, 0.6 * len(pivot))))
+im = ax.imshow(pivot.values, cmap="Blues", aspect="auto")
+
+ax.set_xticks(np.arange(pivot.shape[1]))
+ax.set_xticklabels(pivot.columns.astype(str), rotation=30, ha="right")
+ax.set_yticks(np.arange(pivot.shape[0]))
+ax.set_yticklabels([pretty_names.get(f, f) for f in pivot.index])
+
+# annotate heatmap cells
+for r in range(pivot.shape[0]):
+    for c in range(pivot.shape[1]):
+        val = pivot.values[r, c]
+        if np.isnan(val):
+            txt = "-"
+        else:
+            txt = f"{val:.3f}"
+        ax.text(c, r, txt, ha="center", va="center", fontsize=10)
+
+cbar = fig.colorbar(im, ax=ax, fraction=0.046, pad=0.02)
+cbar.ax.set_ylabel("Macro-F1", rotation=90)
+
+ax.set_title("Best Macro-F1 per Family by Training Regime")
+plt.tight_layout()
+plt.savefig(FIG_DIR / "best_macroF1_heatmap_family_by_regime.jpg", dpi=350, bbox_inches="tight")
+plt.close(fig)
+
+print(f"✅ All plot exports completed: {FIG_DIR.resolve()}")
 
 
 # In[ ]:
@@ -1982,7 +2419,7 @@ print("✅ All plots exported to 'figs/' as JPG files.")
 import pandas as pd
 from pathlib import Path
 
-MODELS_DIR = Path("models")
+MODELS_DIR = Path("models") / DATASET_NAME
 eval_stats_path = MODELS_DIR / "eval_stats.csv"
 
 df = pd.read_csv(eval_stats_path)
@@ -2019,7 +2456,7 @@ for fam in families:
     print(row)
 
 
-# In[19]:
+# In[40]:
 
 
 get_ipython().system('python -m nbconvert --to script Pipeline.ipynb')
