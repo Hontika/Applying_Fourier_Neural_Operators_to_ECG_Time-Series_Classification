@@ -1,0 +1,31 @@
+\begin{tabular}{l l l c r r r r r r r r r}
+\toprule
+Reference & Ref Regime & Target & Within±10% & Ref Params (M) & Target Params (M) & Param Ratio & Ref Macro-F1 & Target Macro-F1 & Δ Macro-F1 & Ref BalAcc & Target BalAcc & Δ BalAcc \\
+\midrule
+att_unet & plateau & att_unet & Yes & 0.17 & 0.17 & 1.000 & 0.565 & 0.565 & 0.000 & 0.528 & 0.528 & 0.000 \\
+att_unet & plateau & att_unet_fno & Yes & 0.17 & 0.18 & 1.078 & 0.565 & 0.596 & 0.032 & 0.528 & 0.579 & 0.051 \\
+att_unet & plateau & base_unet & Yes & 0.17 & 0.16 & 0.968 & 0.565 & 0.559 & -0.006 & 0.528 & 0.522 & -0.006 \\
+att_unet & plateau & resnet1d & No & 0.17 & nan & nan & 0.565 & nan & nan & 0.528 & nan & nan \\
+att_unet & plateau & unet_fno & Yes & 0.17 & 0.18 & 1.069 & 0.565 & 0.576 & 0.011 & 0.528 & 0.552 & 0.024 \\
+att_unet_fno & plateau & att_unet & No & 0.45 & nan & nan & 0.614 & nan & nan & 0.592 & nan & nan \\
+att_unet_fno & plateau & att_unet_fno & Yes & 0.45 & 0.45 & 1.000 & 0.614 & 0.614 & 0.000 & 0.592 & 0.592 & 0.000 \\
+att_unet_fno & plateau & base_unet & No & 0.45 & nan & nan & 0.614 & nan & nan & 0.592 & nan & nan \\
+att_unet_fno & plateau & resnet1d & No & 0.45 & nan & nan & 0.614 & nan & nan & 0.592 & nan & nan \\
+att_unet_fno & plateau & unet_fno & Yes & 0.45 & 0.46 & 1.025 & 0.614 & 0.586 & -0.028 & 0.592 & 0.588 & -0.005 \\
+base_unet & e120 & att_unet & Yes & 0.37 & 0.38 & 1.033 & 0.566 & 0.561 & -0.005 & 0.526 & 0.519 & -0.007 \\
+base_unet & e120 & att_unet_fno & No & 0.37 & nan & nan & 0.566 & nan & nan & 0.526 & nan & nan \\
+base_unet & e120 & base_unet & Yes & 0.37 & 0.37 & 1.000 & 0.566 & 0.566 & 0.000 & 0.526 & 0.526 & 0.000 \\
+base_unet & e120 & resnet1d & No & 0.37 & nan & nan & 0.566 & nan & nan & 0.526 & nan & nan \\
+base_unet & e120 & unet_fno & No & 0.37 & nan & nan & 0.566 & nan & nan & 0.526 & nan & nan \\
+resnet1d & e120 & att_unet & No & 0.96 & nan & nan & 0.594 & nan & nan & 0.569 & nan & nan \\
+resnet1d & e120 & att_unet_fno & Yes & 0.96 & 1.04 & 1.082 & 0.594 & 0.600 & 0.006 & 0.569 & 0.570 & 0.000 \\
+resnet1d & e120 & base_unet & No & 0.96 & nan & nan & 0.594 & nan & nan & 0.569 & nan & nan \\
+resnet1d & e120 & resnet1d & Yes & 0.96 & 0.96 & 1.000 & 0.594 & 0.594 & 0.000 & 0.569 & 0.569 & 0.000 \\
+resnet1d & e120 & unet_fno & Yes & 0.96 & 0.98 & 1.020 & 0.594 & 0.600 & 0.006 & 0.569 & 0.587 & 0.018 \\
+unet_fno & e120 & att_unet & No & 1.62 & nan & nan & 0.607 & nan & nan & 0.596 & nan & nan \\
+unet_fno & e120 & att_unet_fno & Yes & 1.62 & 1.63 & 1.007 & 0.607 & 0.606 & -0.001 & 0.596 & 0.568 & -0.028 \\
+unet_fno & e120 & base_unet & No & 1.62 & nan & nan & 0.607 & nan & nan & 0.596 & nan & nan \\
+unet_fno & e120 & resnet1d & No & 1.62 & nan & nan & 0.607 & nan & nan & 0.596 & nan & nan \\
+unet_fno & e120 & unet_fno & Yes & 1.62 & 1.62 & 1.000 & 0.607 & 0.607 & 0.000 & 0.596 & 0.596 & 0.000 \\
+\bottomrule
+\end{tabular}

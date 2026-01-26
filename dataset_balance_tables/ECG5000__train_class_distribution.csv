@@ -1,0 +1,6 @@
+dataset,split,class_id,class_label,count,pct
+ECG5000,train,0,1,292,58.4
+ECG5000,train,1,2,177,35.4
+ECG5000,train,2,3,10,2.0
+ECG5000,train,3,4,19,3.8
+ECG5000,train,4,5,2,0.4

@@ -5,7 +5,7 @@
 
 # ## Imports
 
-# In[1]:
+# In[3]:
 
 
 # In[4]:
@@ -60,7 +60,7 @@ if device == "cuda":
 
 # ## Basic Data Loading
 
-# In[2]:
+# In[4]:
 
 
 from pathlib import Path
@@ -172,7 +172,7 @@ X_train, X_val, y_train, y_val = train_test_split(
 
 # ## Normalize per sample
 
-# In[3]:
+# In[5]:
 
 
 def zscore_per_sample(X, eps=1e-8):
@@ -187,7 +187,7 @@ X_test  = zscore_per_sample(X_test)
 
 # ## Pytorch Datalset/Dataloader
 
-# In[4]:
+# In[6]:
 
 
 class ECGDataset(Dataset):
@@ -290,16 +290,28 @@ test_loader = DataLoader(
 
 # ## Train/Eval utils
 
-# In[5]:
+# In[7]:
 
 
-def train_one_epoch(model, loader, opt, criterion, epoch=0):
+import numpy as np
+import torch
+import torch.nn as nn
+
+# If you already import tqdm elsewhere, keep that.
+import tqdm.auto as tq
+
+
+def train_one_epoch(model, loader, opt, criterion, epoch=0, verbose=False):
     model.train()
     total_loss, correct, n = 0.0, 0, 0
 
-    pbar = tqdm(loader, desc=f"Train {epoch:02d}", leave=False)
-    for xb, yb in pbar:
+    it = loader
+    if verbose:
+        it = tq.tqdm(loader, desc=f"Train {epoch+1}", leave=False)
+
+    for xb, yb in it:
         xb, yb = xb.to(device), yb.to(device)
+
         opt.zero_grad(set_to_none=True)
         logits = model(xb)
         loss = criterion(logits, yb)
@@ -307,80 +319,91 @@ def train_one_epoch(model, loader, opt, criterion, epoch=0):
         opt.step()
 
         bs = xb.size(0)
-        total_loss += loss.item() * bs
-        correct += (logits.argmax(1) == yb).sum().item()
-        n += bs
+        total_loss += float(loss.item()) * bs
+        correct += int((logits.argmax(1) == yb).sum().item())
+        n += int(bs)
 
-        pbar.set_postfix(loss=f"{total_loss/n:.4f}", acc=f"{correct/n:.3f}")
+        if verbose:
+            it.set_postfix(loss=f"{total_loss/n:.4f}", acc=f"{correct/n:.3f}")
 
-    return total_loss/n, correct/n
+    return total_loss / max(n, 1), correct / max(n, 1)
 
 
 @torch.no_grad()
-def eval_model(model, loader, criterion, epoch=0):
+def eval_model(model, loader, criterion, epoch=0, verbose=False):
     model.eval()
     total_loss, correct, n = 0.0, 0, 0
     all_preds, all_y = [], []
 
-    pbar = tqdm(loader, desc=f"Eval  {epoch:02d}", leave=False)
-    for xb, yb in pbar:
+    it = loader
+    if verbose:
+        it = tq.tqdm(loader, desc=f"Eval  {epoch+1}", leave=False)
+
+    for xb, yb in it:
         xb, yb = xb.to(device), yb.to(device)
+
         logits = model(xb)
         loss = criterion(logits, yb)
 
         bs = xb.size(0)
-        total_loss += loss.item() * bs
+        total_loss += float(loss.item()) * bs
         preds = logits.argmax(1)
 
-        correct += (preds == yb).sum().item()
-        n += bs
+        correct += int((preds == yb).sum().item())
+        n += int(bs)
 
-        all_preds.append(preds.cpu().numpy())
-        all_y.append(yb.cpu().numpy())
+        all_preds.append(preds.detach().cpu().numpy())
+        all_y.append(yb.detach().cpu().numpy())
 
-        pbar.set_postfix(loss=f"{total_loss/n:.4f}", acc=f"{correct/n:.3f}")
+        if verbose:
+            it.set_postfix(loss=f"{total_loss/n:.4f}", acc=f"{correct/n:.3f}")
 
-    return total_loss/n, correct/n, np.concatenate(all_y), np.concatenate(all_preds)
+    return total_loss / max(n, 1), correct / max(n, 1), np.concatenate(all_y), np.concatenate(all_preds)
 
 
-def fit(model, train_loader, val_loader, epochs=40, lr=1e-3, weight_decay=1e-4):
-    """
-    Train with validation:
-    - train_loader: training data
-    - val_loader:   validation data (used for model selection)
-    """
-    model.to(device)
+def fit(model, train_loader, val_loader, epochs=40, lr=1e-3, weight_decay=0.0, verbose=False):
+    model = model.to(device)
     opt = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
     criterion = nn.CrossEntropyLoss()
 
-    best_val_acc, best_state = 0.0, None
+    best_val_acc = -1.0
+    best_state = None
     history = []
 
-    for ep in range(epochs):
-        tr_loss, tr_acc = train_one_epoch(model, train_loader, opt, criterion, ep)
-        val_loss, val_acc, _, _ = eval_model(model, val_loader, criterion, ep)
-        history.append((tr_loss, tr_acc, val_loss, val_acc))
+    for epoch in range(epochs):
+        tr_loss, tr_acc = train_one_epoch(model, train_loader, opt, criterion, epoch=epoch, verbose=verbose)
+        val_loss, val_acc, _, _ = eval_model(model, val_loader, criterion, epoch=epoch, verbose=verbose)
+
+        history.append({
+            "epoch": epoch + 1,
+            "train_loss": float(tr_loss),
+            "train_acc": float(tr_acc),
+            "val_loss": float(val_loss),
+            "val_acc": float(val_acc),
+        })
 
         if val_acc > best_val_acc:
-            best_val_acc = val_acc
-            best_state = {k: v.detach().cpu() for k, v in model.state_dict().items()}
+            best_val_acc = float(val_acc)
+            # Store best weights on CPU (prevents GPU memory growth and helps GC)
+            best_state = {k: v.detach().cpu().clone() for k, v in model.state_dict().items()}
 
-        print(
-            f"Epoch {ep:02d}/{epochs-1} | "
-            f"train acc {tr_acc:.3f} loss {tr_loss:.4f} | "
-            f"val acc {val_acc:.3f} loss {val_loss:.4f}"
-        )
+        # IMPORTANT: Only print per-epoch if verbose=True
+        if verbose:
+            print(
+                f"Epoch {epoch+1:03d}/{epochs:03d} | "
+                f"train acc={tr_acc:.4f} loss={tr_loss:.4f} | "
+                f"val acc={val_acc:.4f} loss={val_loss:.4f}"
+            )
 
     if best_state is not None:
         model.load_state_dict(best_state)
+
     return model, history
-
-
 
 
 # ## Grad-CAM utils
 
-# In[6]:
+# In[8]:
 
 
 import torch
@@ -501,10 +524,37 @@ def match_length(a, b):
     return a, b
 
 
+import os, gc, time
+import torch
+
+try:
+    import psutil
+    _PROC = psutil.Process(os.getpid())
+except Exception:
+    _PROC = None
+
+def mem_report(tag=""):
+    # CPU RSS
+    rss_gb = None
+    if _PROC is not None:
+        rss_gb = _PROC.memory_info().rss / (1024**3)
+
+    # GPU
+    if torch.cuda.is_available():
+        alloc = torch.cuda.memory_allocated() / (1024**2)
+        reserv = torch.cuda.memory_reserved() / (1024**2)
+        maxalloc = torch.cuda.max_memory_allocated() / (1024**2)
+        msg_gpu = f"GPU alloc={alloc:.0f}MB reserved={reserv:.0f}MB max_alloc={maxalloc:.0f}MB"
+    else:
+        msg_gpu = "GPU n/a"
+
+    msg_cpu = f"CPU RSS={rss_gb:.2f}GB" if rss_gb is not None else "CPU RSS n/a"
+    print(f"[mem] {tag} | {msg_cpu} | {msg_gpu}")
+
 
 # ## Model 1: Compact 1D U-net
 
-# In[7]:
+# In[9]:
 
 
 class ConvBlock1D(nn.Module):
@@ -564,7 +614,7 @@ class UNet1DClassifier(nn.Module):
 
 # ## Model 2: 1D U-net + FNO bottleneck
 
-# In[8]:
+# In[10]:
 
 
 class SpectralConv1d(nn.Module):
@@ -649,7 +699,7 @@ class UNetFNO1DClassifier(nn.Module):
 
 # ## Model 1: Attention U-net (Attention gate + Attention up block)
 
-# In[9]:
+# In[11]:
 
 
 import torch
@@ -712,7 +762,7 @@ class UpBlockAtt1D(nn.Module):
         return self.conv(x)
 
 
-# In[10]:
+# In[12]:
 
 
 class AttUNet1DClassifier(nn.Module):
@@ -754,7 +804,7 @@ class AttUNet1DClassifier(nn.Module):
 
 # ## Model 2: Attention U-net + FNO
 
-# In[11]:
+# In[13]:
 
 
 class AttUNetFNO1DClassifier(nn.Module):
@@ -803,7 +853,7 @@ class AttUNetFNO1DClassifier(nn.Module):
 
 # # ResNet1D for baseline
 
-# In[12]:
+# In[14]:
 
 
 class BasicBlock1D(nn.Module):
@@ -928,7 +978,7 @@ class ResNet1DClassifier(nn.Module):
 
 # ## Evaluation prep
 
-# In[13]:
+# In[15]:
 
 
 def plot_confusion(cm, class_names, normalize=False, title="Confusion"):
@@ -975,7 +1025,7 @@ def eval_and_plot(model, loader, name="Model"):
 
 # ## Grid Search
 
-# In[14]:
+# In[16]:
 
 
 # ===========================================================
@@ -1314,7 +1364,7 @@ def build_global_job_queue(model_types, regimes):
     return jobs
 
 
-# In[16]:
+# In[17]:
 
 
 # ===========================================================
@@ -1427,6 +1477,7 @@ def run_global_queue_with_eta():
         print(f"\n[{done}/{total_to_run}] RUN {mt} regime={cfg['train_regime']} cfg={{{', '.join([f'{k}={cfg[k]}' for k in cfg if k!='train_regime'])}}}")
         met = run_one(mt, cfg)
         print("=>", met)
+        mem_report(f"after {mt}/{cfg['train_regime']}")
 
         # Update after run
         elapsed = time.time() - start_time
@@ -1463,7 +1514,7 @@ run_global_queue_with_eta()
 
 # ### Stats for the runs
 
-# In[ ]:
+# In[18]:
 
 
 # ===========================================================
@@ -1624,7 +1675,7 @@ df_eval_all, df_best_per_regime = evaluate_all_models_stats_filesystem()
 df_best_per_regime
 
 
-# In[ ]:
+# In[19]:
 
 
 # ===========================================================
@@ -1665,7 +1716,7 @@ df_top5_regime = make_top5_per_family_per_regime()
 df_top5_regime.head(20)
 
 
-# In[ ]:
+# In[20]:
 
 
 # ===========================================================
@@ -1713,7 +1764,7 @@ plt.tight_layout()
 plt.show()
 
 
-# In[ ]:
+# In[21]:
 
 
 # ===========================================================
@@ -1743,7 +1794,7 @@ print("Saved:", OUT_PATH)
 best_overall
 
 
-# In[ ]:
+# In[22]:
 
 
 # ===========================================================
@@ -1888,7 +1939,7 @@ out[cols_show]
 
 # ### Plots for evaluation
 
-# In[ ]:
+# In[23]:
 
 
 # ===========================================================
@@ -1916,7 +1967,7 @@ plt.show()
 df[["family","train_regime","macro_f1","balanced_acc","test_acc","params_million","run_dir"]]
 
 
-# In[ ]:
+# In[24]:
 
 
 # Params vs Macro-F1
@@ -1935,7 +1986,7 @@ plt.legend()
 plt.show()
 
 
-# In[ ]:
+# In[25]:
 
 
 # ===========================================================
@@ -1966,7 +2017,7 @@ for regime in sorted(df["train_regime"].unique()):
     plt.show()
 
 
-# In[ ]:
+# In[26]:
 
 
 # ===========================================================
@@ -2369,7 +2420,7 @@ plt.close(fig)
 print(f"✅ All plot exports completed: {FIG_DIR.resolve()}")
 
 
-# In[ ]:
+# In[27]:
 
 
 import pandas as pd
@@ -2412,8 +2463,185 @@ for fam in families:
     print(row)
 
 
-# In[ ]:
+# In[17]:
 
 
 get_ipython().system('python -m nbconvert --to script Pipeline.ipynb')
+
+
+# ### Tables
+
+# In[17]:
+
+
+# ===========================================================
+# DATASET IMBALANCE SUMMARY (3 datasets)
+#   - Produces per-dataset tables + combined table
+#   - Exports CSVs you can paste into LaTeX
+# ===========================================================
+
+import numpy as np
+import pandas as pd
+from pathlib import Path
+
+DATASETS = [
+    "ECG5000",
+    "NonInvasiveFetalECGThorax1",
+    "NonInvasiveFetalECGThorax2",
+]
+
+OUT_DIR = Path("reports") / "dataset_stats"
+OUT_DIR.mkdir(parents=True, exist_ok=True)
+
+# --------------------------
+# Helper metrics
+# --------------------------
+def gini_from_probs(p):
+    """Gini impurity (1 - sum p^2). Higher = more diverse, lower = more imbalanced."""
+    p = np.asarray(p, dtype=float)
+    p = p / p.sum() if p.sum() > 0 else p
+    return float(1.0 - np.sum(p * p))
+
+def entropy_from_probs(p, eps=1e-12):
+    """Shannon entropy. Higher = more balanced."""
+    p = np.asarray(p, dtype=float)
+    p = p / p.sum() if p.sum() > 0 else p
+    p = np.clip(p, eps, 1.0)
+    return float(-np.sum(p * np.log2(p)))
+
+def imbalance_ratio(counts):
+    """Max/Min count ratio (ignoring zeros)."""
+    c = np.asarray(counts, dtype=float)
+    c = c[c > 0]
+    if len(c) == 0:
+        return np.nan
+    return float(c.max() / c.min())
+
+def effective_num_classes(p):
+    """
+    Effective number of classes = 1 / sum(p^2).
+    Interpretable: ~ how many equally likely classes would give same concentration.
+    """
+    p = np.asarray(p, dtype=float)
+    p = p / p.sum() if p.sum() > 0 else p
+    denom = float(np.sum(p * p))
+    return float(1.0 / denom) if denom > 0 else np.nan
+
+def summarize_split(y, split_name, dataset_name):
+    y = np.asarray(y).astype(int)
+    classes = np.unique(y)
+    counts = np.array([(y == c).sum() for c in classes], dtype=int)
+    total = int(counts.sum())
+    probs = counts / total if total > 0 else np.zeros_like(counts, dtype=float)
+
+    df = pd.DataFrame({
+        "dataset": dataset_name,
+        "split": split_name,
+        "class_id": classes,
+        "count": counts,
+        "percent": probs * 100.0,
+    })
+
+    summary = {
+        "dataset": dataset_name,
+        "split": split_name,
+        "n_samples": total,
+        "n_classes": int(len(classes)),
+        "majority_class": int(classes[np.argmax(counts)]) if total > 0 else np.nan,
+        "majority_percent": float(probs.max() * 100.0) if total > 0 else np.nan,
+        "minority_class": int(classes[np.argmin(counts)]) if total > 0 else np.nan,
+        "minority_percent": float(probs.min() * 100.0) if total > 0 else np.nan,
+        "imbalance_ratio_maxmin": imbalance_ratio(counts),
+        "gini_impurity": gini_from_probs(probs),
+        "entropy_bits": entropy_from_probs(probs),
+        "effective_num_classes": effective_num_classes(probs),
+    }
+
+    return df, summary
+
+
+# ===========================================================
+# USER HOOK: implement ONE of the following blocks
+# ===========================================================
+def get_labels_for_dataset(name):
+    """
+    Return: y_train, y_test (1D integer arrays)
+    Implement this function for YOUR pipeline.
+
+    Choose ONE of these patterns and delete/comment the others.
+    """
+
+    # ---------- Pattern A: you already have a loader returning arrays ----------
+    # Example signature (adjust to yours):
+    # X_train, y_train, X_test, y_test = load_dataset(name)
+    # return y_train, y_test
+
+    # ---------- Pattern B: you already have datasets objects ----------
+    # Example:
+    # set_dataset(name)  # if your notebook sets globals like train_dataset/test_dataset
+    # y_train = np.array([int(train_dataset[i][1]) for i in range(len(train_dataset))])
+    # y_test  = np.array([int(test_dataset[i][1]) for i in range(len(test_dataset))])
+    # return y_train, y_test
+
+    # ---------- Pattern C: you only have DataLoaders ----------
+    # Example:
+    # set_dataset(name)  # sets train_loader/test_loader
+    # y_train = []
+    # for _, yb in train_loader:
+    #     y_train.append(yb.numpy())
+    # y_train = np.concatenate(y_train)
+    # y_test = []
+    # for _, yb in test_loader:
+    #     y_test.append(yb.numpy())
+    # y_test = np.concatenate(y_test)
+    # return y_train, y_test
+
+    raise NotImplementedError(
+        "Implement get_labels_for_dataset(name) using your existing data loading pipeline."
+    )
+
+
+# ===========================================================
+# Main execution
+# ===========================================================
+all_class_tables = []
+all_split_summaries = []
+
+for ds in DATASETS:
+    ytr, yte = get_labels_for_dataset(ds)
+
+    df_tr, sum_tr = summarize_split(ytr, "train", ds)
+    df_te, sum_te = summarize_split(yte, "test", ds)
+
+    # Export per-class tables
+    df_classes = pd.concat([df_tr, df_te], ignore_index=True)
+    df_classes.to_csv(OUT_DIR / f"{ds}_class_counts.csv", index=False)
+
+    # Export split summary table (one row per split)
+    df_summary = pd.DataFrame([sum_tr, sum_te])
+    df_summary.to_csv(OUT_DIR / f"{ds}_split_summary.csv", index=False)
+
+    all_class_tables.append(df_classes)
+    all_split_summaries.append(df_summary)
+
+    print(f"\n=== {ds} ===")
+    display(df_summary)
+    display(df_classes)
+
+# Combined exports
+df_all_classes = pd.concat(all_class_tables, ignore_index=True)
+df_all_summ = pd.concat(all_split_summaries, ignore_index=True)
+
+df_all_classes.to_csv(OUT_DIR / "ALL_DATASETS_class_counts.csv", index=False)
+df_all_summ.to_csv(OUT_DIR / "ALL_DATASETS_split_summary.csv", index=False)
+
+print("\nSaved outputs to:", OUT_DIR.resolve())
+print(" - Per dataset: <DATASET>_class_counts.csv and <DATASET>_split_summary.csv")
+print(" - Combined: ALL_DATASETS_class_counts.csv and ALL_DATASETS_split_summary.csv")
+
+
+# In[ ]:
+
+
+
 
