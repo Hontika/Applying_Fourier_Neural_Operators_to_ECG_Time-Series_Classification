@@ -67,8 +67,8 @@ from pathlib import Path
 import numpy as np
 
 # DATASET_NAME = "ECG5000"
-DATASET_NAME = "NonInvasiveFetalECGThorax1"
-# DATASET_NAME = "NonInvasiveFetalECGThorax2"
+# DATASET_NAME = "NonInvasiveFetalECGThorax1"
+DATASET_NAME = "NonInvasiveFetalECGThorax2"
 
 # Robust path resolution (handles running notebook from different cwd)
 HERE = Path().resolve()
@@ -978,9 +978,14 @@ def eval_and_plot(model, loader, name="Model"):
 # In[14]:
 
 
-# Resumable Gridsearch (backend) — with training regimes: e40 / e120 / plateau
+# ===========================================================
+# Resumable Gridsearch (backend) — GLOBAL QUEUE RESUME
+#   - Completed detection via filesystem scan (not leaderboard)
+#   - Regime included in config_key (no collisions)
+#   - Saves to: models/<DATASET>/<family>/<regime>/run_xxx/
+# ===========================================================
 
-import hashlib, json, time, copy
+import hashlib, json, time
 from pathlib import Path
 from itertools import product
 
@@ -988,8 +993,6 @@ import numpy as np
 import pandas as pd
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-
 
 # ---- Grid definitions ----
 grid_shared = {
@@ -1003,11 +1006,18 @@ grid_fno = {
     "fno_layers": [1, 2],
 }
 
-# NEW: training regimes layer
-grid_regime = {
-    "train_regime": ["e40", "e120", "plateau"]
-}
+# ---- Regimes to run ----
+# You can add "e80", "e200", etc. safely.
+REGIMES = ["e40", "e120", "plateau"]
 
+# Plateau stopping definition (used only when train_regime == "plateau")
+PLATEAU_CFG = dict(
+    min_epochs=40,         # don’t stop before this
+    max_epochs=300,        # hard cap
+    patience=20,           # how many epochs without improvement before stopping
+    min_delta_acc=1e-4,    # required improvement in val_acc to reset patience
+    min_delta_loss=1e-4,   # required improvement in val_loss to reset patience
+)
 
 # ---- Model directories ----
 MODELS_DIR = Path("models") / DATASET_NAME
@@ -1020,12 +1030,10 @@ MODEL_DIRS = {
     "att_unet_fno": MODELS_DIR / "att_unet_fno",
     "resnet1d":     MODELS_DIR / "resnet1d",
 }
-
-# Create base model family dirs only; regime dirs created on-demand
 for d in MODEL_DIRS.values():
     d.mkdir(parents=True, exist_ok=True)
 
-LEADERBOARD_PATH = MODELS_DIR / "leaderboard.csv"
+LEADERBOARD_PATH = MODELS_DIR / "leaderboard.csv"  # still used for logging only
 
 
 # ---- Helpers ----
@@ -1034,28 +1042,66 @@ def expand_grid(g):
     return [dict(zip(keys, v)) for v in product(*vals)]
 
 
-def make_config_key(model_type, cfg):
+def normalize_cfg(cfg: dict) -> dict:
+    """
+    Ensure regime is always present and types are JSON-stable.
+    """
+    c = dict(cfg)
+    if "train_regime" not in c:
+        raise ValueError("cfg is missing 'train_regime' (required).")
+    # Make sure numeric values are stable
+    for k, v in list(c.items()):
+        if isinstance(v, np.generic):
+            c[k] = v.item()
+    return c
+
+
+def make_config_key(model_type: str, cfg: dict) -> str:
+    """
+    Hash includes ALL cfg fields (including train_regime).
+    This is the single identity of a job.
+    """
+    cfg = normalize_cfg(cfg)
     items = sorted(cfg.items())
     s = model_type + "|" + "|".join([f"{k}={v}" for k, v in items])
     return hashlib.md5(s.encode("utf-8")).hexdigest()
 
 
-def load_completed_keys():
-    if not LEADERBOARD_PATH.exists():
-        return set()
-    df = pd.read_csv(LEADERBOARD_PATH, engine="python", on_bad_lines="skip")
-    if "config_key" in df.columns:
-        return set(df["config_key"].astype(str))
-    completed = set()
-    # fallback for earlier CSVs without config_key
-    use = ["base","lr","weight_decay","dropout","modes","fno_layers","train_regime"]
-    for _, row in df.iterrows():
-        cfg = {k: row[k] for k in use if k in row and pd.notna(row[k])}
-        completed.add(make_config_key(row["model_type"], cfg))
-    return completed
+def iter_run_dirs_filesystem():
+    """
+    Yield (model_type, train_regime, run_dir) for:
+      models/<DATASET>/<model_type>/<train_regime>/run_XXX/
+    """
+    for model_type, base_dir in MODEL_DIRS.items():
+        if not base_dir.exists():
+            continue
+        for regime_dir in sorted([p for p in base_dir.iterdir() if p.is_dir()]):
+            train_regime = regime_dir.name
+            for run_dir in sorted([p for p in regime_dir.glob("run_*") if p.is_dir()]):
+                yield model_type, train_regime, run_dir
 
 
-def next_run_dir(model_type, train_regime):
+def load_completed_keys_filesystem() -> set:
+    """
+    Robust resume: scan folders, read config.json, compute keys.
+    Does not rely on leaderboard.csv parsing.
+    """
+    done = set()
+    for model_type, train_regime, run_dir in iter_run_dirs_filesystem():
+        cfg_path = run_dir / "config.json"
+        if not cfg_path.exists():
+            continue
+        try:
+            cfg = json.loads(cfg_path.read_text())
+            # force regime from folder if missing/mismatched
+            cfg["train_regime"] = cfg.get("train_regime", train_regime)
+            done.add(make_config_key(model_type, cfg))
+        except Exception:
+            continue
+    return done
+
+
+def next_run_dir(model_type: str, train_regime: str):
     parent = MODEL_DIRS[model_type] / str(train_regime)
     parent.mkdir(parents=True, exist_ok=True)
 
@@ -1067,20 +1113,21 @@ def next_run_dir(model_type, train_regime):
 
 
 def save_run(model, model_type, cfg, metrics):
-    train_regime = cfg.get("train_regime", "e40")
+    cfg = normalize_cfg(cfg)
+    train_regime = cfg["train_regime"]
 
     rd, rid = next_run_dir(model_type, train_regime)
 
-    torch.save(model.state_dict(), rd/"model.pt")
-    (rd/"config.json").write_text(json.dumps(cfg, indent=2))
-    (rd/"metrics.json").write_text(json.dumps(metrics, indent=2))
+    torch.save(model.state_dict(), rd / "model.pt")
+    (rd / "config.json").write_text(json.dumps(cfg, indent=2))
+    (rd / "metrics.json").write_text(json.dumps(metrics, indent=2))
 
     row = {
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
         "model_type": model_type,
-        "train_regime": str(train_regime),
+        "train_regime": train_regime,
         "run_id": rid,
-        "run_dir": str(rd.as_posix()),  # NEW: explicit path (helps evaluation later)
+        "run_dir": str(rd.as_posix()),
         "config_key": make_config_key(model_type, cfg),
         **cfg,
         **metrics,
@@ -1116,274 +1163,173 @@ def build_model(model_type, cfg):
     raise ValueError(model_type)
 
 
-# ===========================================================
-# Plateau definition & training
-# ===========================================================
-
-def train_one_epoch(model, loader, optimizer, device):
-    model.train()
-    total_loss, correct, total = 0.0, 0, 0
-    for xb, yb in loader:
-        xb, yb = xb.to(device), yb.to(device)
-        optimizer.zero_grad(set_to_none=True)
-        logits = model(xb)
-        loss = F.cross_entropy(logits, yb)
-        loss.backward()
-        optimizer.step()
-
-        total_loss += loss.item() * xb.size(0)
-        pred = logits.argmax(1)
-        correct += (pred == yb).sum().item()
-        total += xb.size(0)
-
-    return total_loss / max(total, 1), correct / max(total, 1)
-
-
-@torch.no_grad()
-def eval_epoch(model, loader, device):
-    model.eval()
-    total_loss, correct, total = 0.0, 0, 0
-    for xb, yb in loader:
-        xb, yb = xb.to(device), yb.to(device)
-        logits = model(xb)
-        loss = F.cross_entropy(logits, yb)
-
-        total_loss += loss.item() * xb.size(0)
-        pred = logits.argmax(1)
-        correct += (pred == yb).sum().item()
-        total += xb.size(0)
-
-    return total_loss / max(total, 1), correct / max(total, 1)
-
-
-def fit_regime(
-    model,
-    train_loader,
-    val_loader,
-    *,
-    lr,
-    weight_decay,
-    device,
-    train_regime,
-    # plateau controls:
-    min_epochs_plateau=40,
-    max_epochs_plateau=300,
-    patience=20,
-    loss_min_delta=1e-4,
-    acc_min_delta=1e-4,
-):
+def regime_to_epochs(train_regime: str):
     """
-    TRAINING REGIMES:
-      - e40: train exactly 40 epochs
-      - e120: train exactly 120 epochs
-      - plateau: train until BOTH val_loss and val_acc plateau (patience),
-                 with min_epochs and max_epochs guards.
-
-    Returns:
-      model (restored to best checkpoint), history dict, best_info dict
+    e40 -> 40, e120 -> 120, etc.
+    plateau -> None (use early stopping)
     """
+    train_regime = str(train_regime).strip().lower()
+    if train_regime.startswith("e") and train_regime[1:].isdigit():
+        return int(train_regime[1:])
+    if train_regime == "plateau":
+        return None
+    raise ValueError(f"Unknown train_regime: {train_regime}")
 
-    if train_regime == "e40":
-        max_epochs = 40
-        do_plateau = False
-    elif train_regime == "e120":
-        max_epochs = 120
-        do_plateau = False
-    elif train_regime == "plateau":
-        max_epochs = max_epochs_plateau
-        do_plateau = True
-    else:
-        raise ValueError(f"Unknown train_regime: {train_regime}")
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
+def fit_plateau(model, lr, weight_decay):
+    """
+    Plateau definition:
+      Stop when BOTH val_acc and val_loss fail to improve
+      beyond min_delta for `patience` epochs (after min_epochs),
+      while always keeping the best checkpoint (best val_acc, tie-break val_loss).
+    """
+    crit = nn.CrossEntropyLoss()
+    opt = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
 
-    history = {"train_loss": [], "train_acc": [], "val_loss": [], "val_acc": []}
-
-    # best checkpoint selection (primary: val_acc, tie-breaker: val_loss)
-    best_state = copy.deepcopy(model.state_dict())
+    best_state = None
     best_val_acc = -1.0
     best_val_loss = float("inf")
-    best_epoch = 0
+    best_epoch = -1
 
-    # plateau counter counts epochs with NO meaningful improvement in BOTH metrics
-    bad_epochs = 0
+    since_improve = 0
+    start = time.time()
 
-    for epoch in range(1, max_epochs + 1):
-        tr_loss, tr_acc = train_one_epoch(model, train_loader, optimizer, device)
-        va_loss, va_acc = eval_epoch(model, val_loader, device)
+    for epoch in range(1, PLATEAU_CFG["max_epochs"] + 1):
+        model.train()
+        for xb, yb in train_loader:
+            xb, yb = xb.to(device), yb.to(device)
+            opt.zero_grad(set_to_none=True)
+            logits = model(xb)
+            loss = crit(logits, yb)
+            loss.backward()
+            opt.step()
 
-        history["train_loss"].append(tr_loss)
-        history["train_acc"].append(tr_acc)
-        history["val_loss"].append(va_loss)
-        history["val_acc"].append(va_acc)
+        # validate
+        val_loss, val_acc, _, _ = eval_model(model, val_loader, crit)
 
-        # Improvement definitions:
-        acc_improved  = (va_acc  > best_val_acc  + acc_min_delta)
-        loss_improved = (va_loss < best_val_loss - loss_min_delta)
+        improved_acc = (val_acc > best_val_acc + PLATEAU_CFG["min_delta_acc"])
+        improved_loss = (val_loss < best_val_loss - PLATEAU_CFG["min_delta_loss"])
 
-        # Save best checkpoint if:
-        #  - val_acc improves meaningfully, OR
-        #  - val_acc is essentially tied but val_loss improves meaningfully
-        if acc_improved or (abs(va_acc - best_val_acc) <= acc_min_delta and loss_improved):
-            best_val_acc = va_acc
-            best_val_loss = va_loss
+        # checkpoint rule: prioritize val_acc, tie-break by val_loss
+        if improved_acc or (abs(val_acc - best_val_acc) <= PLATEAU_CFG["min_delta_acc"] and improved_loss):
+            best_val_acc = float(val_acc)
+            best_val_loss = float(val_loss)
             best_epoch = epoch
-            best_state = copy.deepcopy(model.state_dict())
+            best_state = {k: v.detach().cpu().clone() for k, v in model.state_dict().items()}
+            since_improve = 0
+        else:
+            since_improve += 1
 
-        # Plateau stopping:
-        if do_plateau and epoch >= min_epochs_plateau:
-            if (not acc_improved) and (not loss_improved):
-                bad_epochs += 1
-            else:
-                bad_epochs = 0
+        # stop only after min_epochs
+        if epoch >= PLATEAU_CFG["min_epochs"] and since_improve >= PLATEAU_CFG["patience"]:
+            break
 
-            if bad_epochs >= patience:
-                break
+    # restore best
+    if best_state is not None:
+        model.load_state_dict(best_state)
 
-    model.load_state_dict(best_state)
-
-    best_info = {
-        "best_epoch": int(best_epoch),
-        "best_val_acc": float(best_val_acc),
-        "best_val_loss": float(best_val_loss),
-        "epochs_ran": int(len(history["val_acc"])),
+    return model, {
+        "epochs_ran": epoch,
+        "best_epoch": best_epoch,
+        "best_val_acc": best_val_acc,
+        "best_val_loss": best_val_loss,
+        "train_time_sec": float(time.time() - start),
     }
-    return model, history, best_info
 
-
-# ---- Run one config ----
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def run_one(model_type, cfg):
+    """
+    Runs exactly one job (model_type + cfg incl. train_regime).
+    Saves best checkpoint (val-selected) into run folder.
+    """
+    cfg = normalize_cfg(cfg)
     model = build_model(model_type, cfg).to(device)
 
-    train_regime = cfg.get("train_regime", "e40")
+    # Train
+    epochs = regime_to_epochs(cfg["train_regime"])
+    if epochs is None:
+        model, extra = fit_plateau(model, lr=cfg["lr"], weight_decay=cfg["weight_decay"])
+        epochs_ran = int(extra["epochs_ran"])
+    else:
+        model, _ = fit(
+            model,
+            train_loader,
+            val_loader,
+            epochs=epochs,
+            lr=cfg["lr"],
+            weight_decay=cfg["weight_decay"],
+        )
+        extra = {"epochs_ran": int(epochs)}
+        epochs_ran = int(epochs)
 
-    model, history, best_info = fit_regime(
-        model,
-        train_loader,
-        val_loader,
-        lr=cfg["lr"],
-        weight_decay=cfg["weight_decay"],
-        device=device,
-        train_regime=train_regime,
-        min_epochs_plateau=40,
-        max_epochs_plateau=300,
-        patience=20,
-        loss_min_delta=1e-4,
-        acc_min_delta=1e-4,
-    )
-
-    # TEST metrics on best-val checkpoint
-    test_loss, test_acc = eval_epoch(model, test_loader, device)
+    # Eval metrics
+    crit = nn.CrossEntropyLoss()
+    val_loss, val_acc, _, _ = eval_model(model, val_loader, crit)
+    test_loss, test_acc, _, _ = eval_model(model, test_loader, crit)
 
     metrics = {
-        "train_regime": str(train_regime),
-        "epochs_ran": int(best_info["epochs_ran"]),
-        "best_epoch": int(best_info["best_epoch"]),
-        "best_val_acc": float(best_info["best_val_acc"]),
-        "best_val_loss": float(best_info["best_val_loss"]),
-        "val_acc": float(best_info["best_val_acc"]),  # compatibility
+        "val_acc": float(val_acc),
+        "val_loss": float(val_loss),
         "test_acc": float(test_acc),
         "test_loss": float(test_loss),
+        "epochs_ran": epochs_ran,
         "params_million": sum(p.numel() for p in model.parameters()) / 1e6,
+        **extra,
     }
 
     save_run(model, model_type, cfg, metrics)
     return metrics
 
 
-# ---- Configs per model type ----
+# ---- Config generation per model type ----
 def get_cfgs_for_type(model_type):
     shared = expand_grid(grid_shared)
-    regimes = expand_grid(grid_regime)
-
-    def attach_regimes(cfg_list):
-        out = []
-        for c in cfg_list:
-            for r in regimes:
-                cc = dict(c)
-                cc.update(r)
-                out.append(cc)
-        return out
-
     if model_type in ["base_unet", "att_unet", "resnet1d"]:
-        return attach_regimes(shared)
+        return shared
     else:
         fno = expand_grid(grid_fno)
         cfgs = []
         for s in shared:
             for f in fno:
-                c = dict(s); c.update(f)
-                cfgs.append(c)
-        return attach_regimes(cfgs)
+                c = dict(s); c.update(f); cfgs.append(c)
+        return cfgs
 
 
-def count_remaining_configs(model_type):
-    done = load_completed_keys()
-    cfgs = get_cfgs_for_type(model_type)
-    return sum(1 for cfg in cfgs if make_config_key(model_type, cfg) not in done)
-
-
-# ---- Resumable Gridsearch (widget compatible) ----
-def grid_search_resumable(model_type, on_run_done=None):
-    done_keys = load_completed_keys()
-    cfgs = get_cfgs_for_type(model_type)
-
-    total = len(cfgs)
-    ran = 0
-    skipped = 0
-
-    print(f"{model_type}: {total} configs")
-
-    for i, cfg in enumerate(cfgs, 1):
-        key = make_config_key(model_type, cfg)
-
-        if key in done_keys:
-            skipped += 1
-            continue
-
-        ran += 1
-        print(f"\n[{i}/{total}] RUN {model_type} regime={cfg['train_regime']} cfg={cfg}")
-        met = run_one(model_type, cfg)
-        print("=>", met)
-
-        if on_run_done is not None:
-            on_run_done()
-
-    print(f"{model_type} new runs={ran}, skipped={skipped}")
+def build_global_job_queue(model_types, regimes):
+    """
+    Deterministic global order:
+      for mt in model_types:
+        for regime in regimes:
+          for cfg in cfgs_for_type(mt):
+             yield job_cfg
+    """
+    jobs = []
+    for mt in model_types:
+        cfgs = get_cfgs_for_type(mt)
+        for reg in regimes:
+            for cfg in cfgs:
+                c = dict(cfg)
+                c["train_regime"] = reg
+                jobs.append((mt, c))
+    return jobs
 
 
 # In[16]:
 
 
-# ---- Grid search run script (fixed progress bar + ETA) ----
+# ===========================================================
+# Grid search runner — GLOBAL QUEUE RESUME + ETA
+#   Runs the first pending job onward (no family rotation)
+# ===========================================================
 
 import time
-import pandas as pd
-import ipywidgets as widgets
-from IPython.display import display
 
-def make_overall_progress(total_remaining):
-    bar = widgets.IntProgress(
-        value=0, min=0, max=total_remaining,
-        description="Gridsearch:",
-        bar_style="",
-        orientation="horizontal",
-        layout=widgets.Layout(width="80%")
-    )
-    label = widgets.HTML(value=f"<b>0 / {total_remaining}</b> completed")
-    sublabel = widgets.HTML(value="Waiting to start…")
-
-    box = widgets.VBox([bar, label, sublabel])
-    display(box)
-
-    def update(n_done, text=""):
-        bar.value = n_done
-        label.value = f"<b>{n_done} / {total_remaining}</b> completed"
-        if text:
-            sublabel.value = text
-    return update
+try:
+    import ipywidgets as widgets
+    from IPython.display import display
+    HAVE_WIDGETS = True
+except Exception:
+    HAVE_WIDGETS = False
 
 
 def fmt_seconds(sec):
@@ -1396,111 +1342,121 @@ def fmt_seconds(sec):
     return f"{s}s"
 
 
-def get_last_model_type():
-    if not LEADERBOARD_PATH.exists():
-        return None
-    df = pd.read_csv(LEADERBOARD_PATH, engine="python", on_bad_lines="skip")
-    if len(df) == 0:
-        return None
-    return str(df.iloc[-1]["model_type"])
+def make_overall_progress(total_remaining):
+    if not HAVE_WIDGETS:
+        # fallback
+        def update(n_done, text=""):
+            if text:
+                print(f"[{n_done}/{total_remaining}] {text}")
+            else:
+                print(f"[{n_done}/{total_remaining}]")
+        return update
+
+    bar = widgets.IntProgress(
+        value=0, min=0, max=total_remaining,
+        description="Gridsearch:",
+        bar_style="",
+        orientation="horizontal",
+        layout=widgets.Layout(width="85%")
+    )
+    label = widgets.HTML(value=f"<b>0 / {total_remaining}</b> completed")
+    sublabel = widgets.HTML(value="Waiting to start…")
+    box = widgets.VBox([bar, label, sublabel])
+    display(box)
+
+    def update(n_done, text=""):
+        bar.value = n_done
+        label.value = f"<b>{n_done} / {total_remaining}</b> completed"
+        if text:
+            sublabel.value = text
+
+    return update
 
 
-def rotate_model_types(model_types, start_type):
-    if start_type is None or start_type not in model_types:
-        return model_types
-    i = model_types.index(start_type)
-    return model_types[i:] + model_types[:i]
-
-
-def run_all_searches_with_eta():
+def run_global_queue_with_eta():
     base_order = ["base_unet", "unet_fno", "att_unet", "att_unet_fno", "resnet1d"]
+    regimes = list(REGIMES)
 
-    initial_done = load_completed_keys()
+    # Build all possible jobs in deterministic order
+    all_jobs = build_global_job_queue(base_order, regimes)
 
-    per_family_remaining = {}
-    total_to_run = 0
-    for mt in base_order:
-        cfgs = get_cfgs_for_type(mt)
-        n = sum(
-            1
-            for cfg in cfgs
-            if make_config_key(mt, cfg) not in initial_done
-        )
-        per_family_remaining[mt] = n
-        total_to_run += n
+    # Completed via filesystem (robust)
+    done_keys = load_completed_keys_filesystem()
 
-    print("Total configs that will run in this call:", total_to_run)
+    # Pending jobs are those not in done
+    pending = []
+    for mt, cfg in all_jobs:
+        key = make_config_key(mt, cfg)
+        if key not in done_keys:
+            pending.append((mt, cfg))
+
+    total_to_run = len(pending)
+    print("Total pending jobs:", total_to_run)
 
     if total_to_run == 0:
-        print("Nothing left to run – all configs are already completed.")
-        df = pd.read_csv(LEADERBOARD_PATH, engine="python", on_bad_lines="skip")
-        display(df.sort_values("test_acc", ascending=False).head(10))
-        print("\nBest per type:")
-        display(df.sort_values("test_acc", ascending=False).groupby("model_type").head(1))
+        print("Nothing left to run — all jobs are completed.")
+        if LEADERBOARD_PATH.exists():
+            df = pd.read_csv(LEADERBOARD_PATH, engine="python", on_bad_lines="skip")
+            display(df.sort_values("test_acc", ascending=False).head(10))
         return
 
-    update_overall = make_overall_progress(total_to_run)
+    update = make_overall_progress(total_to_run)
 
-    last_type = get_last_model_type()
-    model_types = rotate_model_types(base_order, last_type)
-
-    print("Last completed family:", last_type)
-    print("Resume order:", model_types)
-
-    done_so_far = 0
+    done = 0
     start_time = time.time()
 
-    for mt in model_types:
-        rem_this = per_family_remaining.get(mt, 0)
+    for (mt, cfg) in pending:
+        done += 1
 
-        if rem_this == 0:
-            update_overall(
-                done_so_far,
-                f"<i>Skipping {mt} — no remaining configs in this family</i>"
+        # ETA before run (based on avg so far)
+        elapsed = time.time() - start_time
+        avg = elapsed / max(done - 1, 1)  # use completed runs only
+        remaining = total_to_run - (done - 1)
+        eta_sec = remaining * avg
+
+        update(
+            done - 1,
+            (
+                f"<i>Next:</i> <b>{mt}</b> | regime=<b>{cfg['train_regime']}</b><br>"
+                f"Elapsed: <b>{fmt_seconds(elapsed)}</b> | "
+                f"Avg/run: <b>{fmt_seconds(avg)}</b> | "
+                f"ETA: <b>{fmt_seconds(eta_sec)}</b>"
             )
-            continue
-
-        update_overall(
-            done_so_far,
-            f"<i>Running {mt} — {rem_this} configs left in this family</i>"
         )
 
-        def callback():
-            nonlocal done_so_far
-            done_so_far += 1
+        print(f"\n[{done}/{total_to_run}] RUN {mt} regime={cfg['train_regime']} cfg={{{', '.join([f'{k}={cfg[k]}' for k in cfg if k!='train_regime'])}}}")
+        met = run_one(mt, cfg)
+        print("=>", met)
 
-            elapsed = time.time() - start_time
-            avg_per_run = elapsed / done_so_far if done_so_far > 0 else 0.0
-            remaining = total_to_run - done_so_far
-            eta_sec = remaining * avg_per_run
-
-            update_overall(
-                done_so_far,
-                (
-                    f"<i>Running {mt}…</i><br>"
-                    f"Elapsed: <b>{fmt_seconds(elapsed)}</b> | "
-                    f"Avg/run: <b>{fmt_seconds(avg_per_run)}</b> | "
-                    f"ETA: <b>{fmt_seconds(eta_sec)}</b>"
-                )
+        # Update after run
+        elapsed = time.time() - start_time
+        avg = elapsed / done
+        remaining = total_to_run - done
+        eta_sec = remaining * avg
+        update(
+            done,
+            (
+                f"<i>Running…</i><br>"
+                f"Elapsed: <b>{fmt_seconds(elapsed)}</b> | "
+                f"Avg/run: <b>{fmt_seconds(avg)}</b> | "
+                f"ETA: <b>{fmt_seconds(eta_sec)}</b>"
             )
-
-        grid_search_resumable(mt, on_run_done=callback)
+        )
 
     elapsed_total = time.time() - start_time
-    update_overall(
-        done_so_far,
-        f"<b>All searches complete ✅</b><br>Total time: <b>{fmt_seconds(elapsed_total)}</b>"
+    update(
+        total_to_run,
+        f"<b>All runs complete ✅</b><br>Total time: <b>{fmt_seconds(elapsed_total)}</b>"
     )
 
-    df = pd.read_csv(LEADERBOARD_PATH, engine="python", on_bad_lines="skip")
-    display(df.sort_values("test_acc", ascending=False).head(10))
+    # Optional summary
+    if LEADERBOARD_PATH.exists():
+        df = pd.read_csv(LEADERBOARD_PATH, engine="python", on_bad_lines="skip")
+        display(df.sort_values("test_acc", ascending=False).head(10))
 
-    print("\nBest per type:")
-    display(df.sort_values("test_acc", ascending=False).groupby("model_type").head(1))
 
-
-# Call this in the notebook:
-run_all_searches_with_eta()
+# Call this in the notebook to run/resume:
+run_global_queue_with_eta()
 
 
 # ## Results (so far)
@@ -2456,14 +2412,8 @@ for fam in families:
     print(row)
 
 
-# In[40]:
-
-
-get_ipython().system('python -m nbconvert --to script Pipeline.ipynb')
-
-
 # In[ ]:
 
 
-
+get_ipython().system('python -m nbconvert --to script Pipeline.ipynb')
 
