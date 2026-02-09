@@ -5,7 +5,7 @@
 
 # ## Imports
 
-# In[3]:
+# In[28]:
 
 
 # In[4]:
@@ -60,15 +60,15 @@ if device == "cuda":
 
 # ## Basic Data Loading
 
-# In[4]:
+# In[29]:
 
 
 from pathlib import Path
 import numpy as np
 
-# DATASET_NAME = "ECG5000"
+DATASET_NAME = "ECG5000"
 # DATASET_NAME = "NonInvasiveFetalECGThorax1"
-DATASET_NAME = "NonInvasiveFetalECGThorax2"
+# DATASET_NAME = "NonInvasiveFetalECGThorax2"
 
 # Robust path resolution (handles running notebook from different cwd)
 HERE = Path().resolve()
@@ -162,17 +162,40 @@ print("Classes:", classes, "| num_classes:", num_classes, "| seq_len:", seq_len)
 
 from sklearn.model_selection import train_test_split
 
-X_train, X_val, y_train, y_val = train_test_split(
-    X_train_full, y_train_full,
-    test_size=0.2,
+from sklearn.model_selection import train_test_split
+import numpy as np
+
+# 1) Combine TRAIN + TEST into one pool
+X_all = np.concatenate([X_train_full, X_test], axis=0)
+y_all = np.concatenate([y_train_full, y_test], axis=0)
+
+# 2) 60/20/20 split via two-stage stratified splitting
+#    Stage A: 20% test
+X_tmp, X_test, y_tmp, y_test = train_test_split(
+    X_all, y_all,
+    test_size=0.20,
     random_state=42,
-    stratify=y_train_full
+    stratify=y_all
 )
+
+#    Stage B: from remaining 80%, take 25% as val => 0.25 * 0.80 = 0.20 overall
+X_train, X_val, y_train, y_val = train_test_split(
+    X_tmp, y_tmp,
+    test_size=0.25,
+    random_state=42,
+    stratify=y_tmp
+)
+
+print("Split sizes:",
+      "train", len(X_train),
+      "val", len(X_val),
+      "test", len(X_test))
+
 
 
 # ## Normalize per sample
 
-# In[5]:
+# In[30]:
 
 
 def zscore_per_sample(X, eps=1e-8):
@@ -187,7 +210,7 @@ X_test  = zscore_per_sample(X_test)
 
 # ## Pytorch Datalset/Dataloader
 
-# In[6]:
+# In[31]:
 
 
 class ECGDataset(Dataset):
@@ -288,9 +311,91 @@ test_loader = DataLoader(
 )
 
 
+# ## Spectrogram dataset (STFT)
+
+# In[32]:
+
+
+import torch
+from torch.utils.data import Dataset
+
+class SpectrogramDataset(Dataset):
+    """
+    Converts 1D signal (L,) to log-magnitude STFT spectrogram (1, F, T).
+    Optional per-item cache to avoid recomputing STFT each epoch.
+    """
+    def __init__(self, X, y, n_fft=128, hop_length=32, win_length=None,
+                 log_eps=1e-6, augment=False, max_shift=0, cache=True):
+        self.X = torch.from_numpy(X).float()  # (N, L)
+        self.y = torch.from_numpy(y).long()
+        self.n_fft = int(n_fft)
+        self.hop_length = int(hop_length)
+        self.win_length = int(win_length) if win_length is not None else self.n_fft
+        self.log_eps = float(log_eps)
+
+        # reuse your existing shift augmentation idea
+        self.augment = augment
+        self.max_shift = int(max_shift)
+
+        self.cache = bool(cache)
+        self._cache = {}  # idx -> spec tensor (1,F,T)
+
+        self.window = torch.hann_window(self.win_length)
+
+    def __len__(self):
+        return len(self.X)
+
+    def _random_shift_1d(self, x_1d):
+        if self.max_shift <= 0:
+            return x_1d
+        shift = torch.randint(-self.max_shift, self.max_shift + 1, (1,)).item()
+        if shift == 0:
+            return x_1d
+        L = x_1d.shape[0]
+        if shift > 0:
+            pad = torch.zeros(shift, dtype=x_1d.dtype)
+            return torch.cat([pad, x_1d[:L-shift]], dim=0)
+        else:
+            s = -shift
+            pad = torch.zeros(s, dtype=x_1d.dtype)
+            return torch.cat([x_1d[s:], pad], dim=0)
+
+    def _make_spec(self, x_1d):
+        # x_1d: (L,)
+        # stft -> (F, T) complex
+        stft = torch.stft(
+            x_1d,
+            n_fft=self.n_fft,
+            hop_length=self.hop_length,
+            win_length=self.win_length,
+            window=self.window.to(x_1d.device),
+            center=True,
+            return_complex=True,
+        )
+        mag = stft.abs()  # (F,T)
+        logmag = torch.log(mag + self.log_eps)
+        # add channel dim -> (1,F,T)
+        return logmag.unsqueeze(0)
+
+    def __getitem__(self, i):
+        if self.cache and i in self._cache:
+            return self._cache[i].clone(), self.y[i]
+
+        x = self.X[i]  # (L,)
+        if self.augment and self.max_shift > 0:
+            x = self._random_shift_1d(x)
+
+        spec = self._make_spec(x)
+
+        if self.cache:
+            self._cache[i] = spec.detach().cpu()
+
+        return spec, self.y[i]
+
+
 # ## Train/Eval utils
 
-# In[7]:
+# In[33]:
 
 
 import numpy as np
@@ -403,7 +508,7 @@ def fit(model, train_loader, val_loader, epochs=40, lr=1e-3, weight_decay=0.0, v
 
 # ## Grad-CAM utils
 
-# In[8]:
+# In[34]:
 
 
 import torch
@@ -554,7 +659,7 @@ def mem_report(tag=""):
 
 # ## Model 1: Compact 1D U-net
 
-# In[9]:
+# In[35]:
 
 
 class ConvBlock1D(nn.Module):
@@ -614,7 +719,7 @@ class UNet1DClassifier(nn.Module):
 
 # ## Model 2: 1D U-net + FNO bottleneck
 
-# In[10]:
+# In[36]:
 
 
 class SpectralConv1d(nn.Module):
@@ -699,7 +804,7 @@ class UNetFNO1DClassifier(nn.Module):
 
 # ## Model 1: Attention U-net (Attention gate + Attention up block)
 
-# In[11]:
+# In[37]:
 
 
 import torch
@@ -762,7 +867,7 @@ class UpBlockAtt1D(nn.Module):
         return self.conv(x)
 
 
-# In[12]:
+# In[38]:
 
 
 class AttUNet1DClassifier(nn.Module):
@@ -804,7 +909,7 @@ class AttUNet1DClassifier(nn.Module):
 
 # ## Model 2: Attention U-net + FNO
 
-# In[13]:
+# In[39]:
 
 
 class AttUNetFNO1DClassifier(nn.Module):
@@ -853,7 +958,7 @@ class AttUNetFNO1DClassifier(nn.Module):
 
 # # ResNet1D for baseline
 
-# In[14]:
+# In[40]:
 
 
 class BasicBlock1D(nn.Module):
@@ -957,6 +1062,384 @@ class ResNet1DClassifier(nn.Module):
         return x
 
 
+# ## ResNet-9 models
+
+# In[ ]:
+
+
+class ResBlock1D(nn.Module):
+    """Standard 2x Conv residual block (no downsample)."""
+    def __init__(self, ch):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Conv1d(ch, ch, 3, padding=1, bias=False),
+            nn.BatchNorm1d(ch),
+            nn.ReLU(inplace=True),
+            nn.Conv1d(ch, ch, 3, padding=1, bias=False),
+            nn.BatchNorm1d(ch),
+        )
+        self.relu = nn.ReLU(inplace=True)
+
+    def forward(self, x):
+        return self.relu(self.net(x) + x)
+
+class ResNet9_1DClassifier(nn.Module):
+    """
+    ResNet-9-ish for 1D:
+      conv -> conv -> res -> down -> conv -> res -> down -> conv -> head
+    Total conv count ~= 9 (depending on how you count in res blocks).
+    """
+    def __init__(self, in_ch=1, base=32, num_classes=5, dropout=0.0):
+        super().__init__()
+        c = base
+
+        self.stem = nn.Sequential(
+            nn.Conv1d(in_ch, c, kernel_size=7, stride=1, padding=3, bias=False),
+            nn.BatchNorm1d(c),
+            nn.ReLU(inplace=True),
+        )
+
+        self.stage1 = nn.Sequential(
+            nn.Conv1d(c, c, 3, padding=1, bias=False),
+            nn.BatchNorm1d(c),
+            nn.ReLU(inplace=True),
+        )
+        self.res1 = ResBlock1D(c)
+
+        self.down1 = nn.MaxPool1d(2)
+
+        self.stage2 = nn.Sequential(
+            nn.Conv1d(c, 2*c, 3, padding=1, bias=False),
+            nn.BatchNorm1d(2*c),
+            nn.ReLU(inplace=True),
+        )
+        self.res2 = ResBlock1D(2*c)
+
+        self.down2 = nn.MaxPool1d(2)
+
+        self.stage3 = nn.Sequential(
+            nn.Conv1d(2*c, 4*c, 3, padding=1, bias=False),
+            nn.BatchNorm1d(4*c),
+            nn.ReLU(inplace=True),
+        )
+
+        self.head = nn.Sequential(
+            nn.AdaptiveAvgPool1d(1),
+            nn.Flatten(),
+            nn.Dropout(dropout),
+            nn.Linear(4*c, num_classes),
+        )
+
+    def forward(self, x):
+        x = self.stem(x)
+        x = self.stage1(x)
+        x = self.res1(x)
+        x = self.down1(x)
+        x = self.stage2(x)
+        x = self.res2(x)
+        x = self.down2(x)
+        x = self.stage3(x)
+        return self.head(x)
+
+
+# In[ ]:
+
+
+class CFResBlock1D(nn.Module):
+    """
+    Convolutional-Fourier residual block:
+      local conv path + spectral (Fourier) path, summed, then ReLU.
+    """
+    def __init__(self, ch, modes=16):
+        super().__init__()
+        self.local = nn.Sequential(
+            nn.Conv1d(ch, ch, 3, padding=1, bias=False),
+            nn.BatchNorm1d(ch),
+            nn.ReLU(inplace=True),
+            nn.Conv1d(ch, ch, 3, padding=1, bias=False),
+            nn.BatchNorm1d(ch),
+        )
+
+        # global Fourier path (your SpectralConv1d + pointwise conv)
+        self.global_ = nn.Sequential(
+            SpectralConv1d(ch, ch, modes=modes),
+            nn.Conv1d(ch, ch, 1, bias=False),
+            nn.BatchNorm1d(ch),
+        )
+
+        self.relu = nn.ReLU(inplace=True)
+
+    def forward(self, x):
+        y = self.local(x) + self.global_(x)
+        return self.relu(y + x)
+
+
+class CFResNet9_1DClassifier(nn.Module):
+    def __init__(self, in_ch=1, base=32, num_classes=5, dropout=0.0, modes=16):
+        super().__init__()
+        c = base
+
+        self.stem = nn.Sequential(
+            nn.Conv1d(in_ch, c, kernel_size=7, stride=1, padding=3, bias=False),
+            nn.BatchNorm1d(c),
+            nn.ReLU(inplace=True),
+        )
+
+        self.stage1 = nn.Sequential(
+            nn.Conv1d(c, c, 3, padding=1, bias=False),
+            nn.BatchNorm1d(c),
+            nn.ReLU(inplace=True),
+        )
+        self.res1 = CFResBlock1D(c, modes=modes)
+
+        self.down1 = nn.MaxPool1d(2)
+
+        self.stage2 = nn.Sequential(
+            nn.Conv1d(c, 2*c, 3, padding=1, bias=False),
+            nn.BatchNorm1d(2*c),
+            nn.ReLU(inplace=True),
+        )
+        self.res2 = CFResBlock1D(2*c, modes=modes)
+
+        self.down2 = nn.MaxPool1d(2)
+
+        self.stage3 = nn.Sequential(
+            nn.Conv1d(2*c, 4*c, 3, padding=1, bias=False),
+            nn.BatchNorm1d(4*c),
+            nn.ReLU(inplace=True),
+        )
+
+        self.head = nn.Sequential(
+            nn.AdaptiveAvgPool1d(1),
+            nn.Flatten(),
+            nn.Dropout(dropout),
+            nn.Linear(4*c, num_classes),
+        )
+
+    def forward(self, x):
+        x = self.stem(x)
+        x = self.stage1(x)
+        x = self.res1(x)
+        x = self.down1(x)
+        x = self.stage2(x)
+        x = self.res2(x)
+        x = self.down2(x)
+        x = self.stage3(x)
+        return self.head(x)
+
+
+# In[ ]:
+
+
+class FNOResBlock1D(nn.Module):
+    """Residual block using your FNOBlock1d."""
+    def __init__(self, ch, modes=16, fno_layers=1):
+        super().__init__()
+        self.fno = nn.Sequential(*[FNOBlock1d(ch, modes) for _ in range(int(fno_layers))])
+
+    def forward(self, x):
+        return x + self.fno(x)
+
+class FNOResNet9_1DClassifier(nn.Module):
+    def __init__(self, in_ch=1, base=32, num_classes=5, dropout=0.0, modes=16, fno_layers=1):
+        super().__init__()
+        c = base
+
+        self.stem = nn.Sequential(
+            nn.Conv1d(in_ch, c, kernel_size=7, stride=1, padding=3, bias=False),
+            nn.BatchNorm1d(c),
+            nn.ReLU(inplace=True),
+        )
+
+        self.stage1 = nn.Sequential(
+            nn.Conv1d(c, c, 3, padding=1, bias=False),
+            nn.BatchNorm1d(c),
+            nn.ReLU(inplace=True),
+        )
+        self.res1 = FNOResBlock1D(c, modes=modes, fno_layers=fno_layers)
+
+        self.down1 = nn.MaxPool1d(2)
+
+        self.stage2 = nn.Sequential(
+            nn.Conv1d(c, 2*c, 3, padding=1, bias=False),
+            nn.BatchNorm1d(2*c),
+            nn.ReLU(inplace=True),
+        )
+        self.res2 = FNOResBlock1D(2*c, modes=modes, fno_layers=fno_layers)
+
+        self.down2 = nn.MaxPool1d(2)
+
+        self.stage3 = nn.Sequential(
+            nn.Conv1d(2*c, 4*c, 3, padding=1, bias=False),
+            nn.BatchNorm1d(4*c),
+            nn.ReLU(inplace=True),
+        )
+
+        self.head = nn.Sequential(
+            nn.AdaptiveAvgPool1d(1),
+            nn.Flatten(),
+            nn.Dropout(dropout),
+            nn.Linear(4*c, num_classes),
+        )
+
+    def forward(self, x):
+        x = self.stem(x)
+        x = self.stage1(x)
+        x = self.res1(x)
+        x = self.down1(x)
+        x = self.stage2(x)
+        x = self.res2(x)
+        x = self.down2(x)
+        x = self.stage3(x)
+        return self.head(x)
+
+
+# # Spectrogram classifiers
+
+# In[41]:
+
+
+class SpecCNNClassifier(nn.Module):
+    """
+    Input: (B, 1, F, T)
+    Robust to small T by pooling only over frequency.
+    """
+    def __init__(self, base=32, num_classes=5, dropout=0.0):
+        super().__init__()
+        c = base
+        self.net = nn.Sequential(
+            nn.Conv2d(1, c, kernel_size=3, padding=1),
+            nn.BatchNorm2d(c),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=(2, 1)),   # <-- changed
+
+            nn.Conv2d(c, 2*c, kernel_size=3, padding=1),
+            nn.BatchNorm2d(2*c),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=(2, 1)),   # <-- changed
+
+            nn.Conv2d(2*c, 4*c, kernel_size=3, padding=1),
+            nn.BatchNorm2d(4*c),
+            nn.ReLU(),
+        )
+
+        self.head = nn.Sequential(
+            nn.AdaptiveAvgPool2d((1, 1)),
+            nn.Flatten(),
+            nn.Dropout(dropout),
+            nn.Linear(4*c, num_classes),
+        )
+
+    def forward(self, x):
+        x = self.net(x)
+        return self.head(x)
+
+
+# In[42]:
+
+
+class SpectralConv2d(nn.Module):
+    """
+    2D spectral conv: rFFT2 -> keep modes -> complex linear map -> irFFT2
+    Input:  x (B, C_in, H, W)   (H=F, W=T)
+    Output: y (B, C_out, H, W)
+    """
+    def __init__(self, in_channels, out_channels, modes_h, modes_w):
+        super().__init__()
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.modes_h = int(modes_h)
+        self.modes_w = int(modes_w)
+
+        scale = 1 / (in_channels * out_channels)
+        # complex weights for low-frequency modes
+        self.weights = nn.Parameter(
+            scale * torch.randn(in_channels, out_channels, self.modes_h, self.modes_w, dtype=torch.cfloat)
+        )
+
+    def forward(self, x):
+        # x: (B, C, H, W)
+        B, C, H, W = x.shape
+        x_ft = torch.fft.rfft2(x, dim=(-2, -1))  # (B, C, H, W//2+1) complex
+
+        out_ft = torch.zeros(
+            B, self.out_channels, H, x_ft.size(-1),
+            dtype=torch.cfloat, device=x.device
+        )
+
+        mh = min(self.modes_h, H)
+        mw = min(self.modes_w, x_ft.size(-1))
+
+        # multiply only low-frequency block
+        out_ft[:, :, :mh, :mw] = torch.einsum(
+            "bcih,coih->boih",
+            x_ft[:, :, :mh, :mw],
+            self.weights[:, :, :mh, :mw]
+        )
+
+        x = torch.fft.irfft2(out_ft, s=(H, W), dim=(-2, -1))
+        return x
+
+
+class FNOBlock2d(nn.Module):
+    def __init__(self, width, modes_h, modes_w):
+        super().__init__()
+        self.spec = SpectralConv2d(width, width, modes_h, modes_w)
+        self.pw = nn.Conv2d(width, width, kernel_size=1)
+        self.bn = nn.BatchNorm2d(width)
+
+    def forward(self, x):
+        x = self.spec(x) + self.pw(x)
+        return F.relu(self.bn(x))
+
+
+class SpecCNNFNOClassifier(nn.Module):
+    """
+    Input: (B, 1, F, T)
+    Conv2D frontend + FNO2D blocks + head.
+    Pool only along frequency: MaxPool2d((2,1)) to avoid collapsing tiny T.
+    """
+    def __init__(self, base=32, num_classes=5, dropout=0.0, modes_h=16, modes_w=8, fno_layers=2):
+        super().__init__()
+        c = base
+
+        self.stem = nn.Sequential(
+            nn.Conv2d(1, c, kernel_size=3, padding=1),
+            nn.BatchNorm2d(c),
+            nn.ReLU(),
+        )
+
+        self.down = nn.Sequential(
+            nn.Conv2d(c, 2*c, kernel_size=3, padding=1),
+            nn.BatchNorm2d(2*c),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=(2, 1)),  # pool only F
+
+            nn.Conv2d(2*c, 4*c, kernel_size=3, padding=1),
+            nn.BatchNorm2d(4*c),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=(2, 1)),  # pool only F
+        )
+
+        self.fno = nn.Sequential(*[
+            FNOBlock2d(4*c, modes_h=modes_h, modes_w=modes_w)
+            for _ in range(int(fno_layers))
+        ])
+
+        self.head = nn.Sequential(
+            nn.AdaptiveAvgPool2d((1, 1)),
+            nn.Flatten(),
+            nn.Dropout(dropout),
+            nn.Linear(4*c, num_classes),
+        )
+
+    def forward(self, x):
+        x = self.stem(x)
+        x = self.down(x)
+        x = self.fno(x)
+        return self.head(x)
+
+
 # # Hyperparameter tuning
 
 # Shared:
@@ -978,7 +1461,7 @@ class ResNet1DClassifier(nn.Module):
 
 # ## Evaluation prep
 
-# In[15]:
+# In[43]:
 
 
 def plot_confusion(cm, class_names, normalize=False, title="Confusion"):
@@ -1025,7 +1508,7 @@ def eval_and_plot(model, loader, name="Model"):
 
 # ## Grid Search
 
-# In[16]:
+# In[ ]:
 
 
 # ===========================================================
@@ -1056,9 +1539,26 @@ grid_fno = {
     "fno_layers": [1, 2],
 }
 
+grid_spec = {
+    "n_fft": [32,64],
+    "hop_length": [4,8,16],
+}
+
+grid_spec_fno = {
+    "modes_h": [8, 16],
+    "modes_w": [4, 8],
+    "fno_layers_2d": [1, 2, 3],
+}
+
+grid_cf = {"modes": [8, 16, 24]}
+
+grid_fno_resnet9 = {"modes": [8, 16, 24], "fno_layers": [1, 2]}
+
+
+
 # ---- Regimes to run ----
 # You can add "e80", "e200", etc. safely.
-REGIMES = ["e40", "e120", "plateau"]
+REGIMES = ["e50", "e120", "plateau"]
 
 # Plateau stopping definition (used only when train_regime == "plateau")
 PLATEAU_CFG = dict(
@@ -1079,7 +1579,10 @@ MODEL_DIRS = {
     "att_unet":     MODELS_DIR / "att_unet",
     "att_unet_fno": MODELS_DIR / "att_unet_fno",
     "resnet1d":     MODELS_DIR / "resnet1d",
+    "spec_cnn":     MODELS_DIR / "spec_cnn",   # NEW
+    "spec_cnn_fno": MODELS_DIR / "spec_cnn_fno",
 }
+
 for d in MODEL_DIRS.values():
     d.mkdir(parents=True, exist_ok=True)
 
@@ -1210,6 +1713,31 @@ def build_model(model_type, cfg):
         return ResNet1DClassifier(
             in_ch=1, base=cfg["base"], num_classes=num_classes, dropout=cfg["dropout"]
         )
+    if model_type == "spec_cnn":
+        return SpecCNNClassifier(base=cfg["base"], num_classes=num_classes, dropout=cfg["dropout"])
+    if model_type == "spec_cnn_fno":
+        return SpecCNNFNOClassifier(
+            base=cfg["base"],
+            num_classes=num_classes,
+            dropout=cfg["dropout"],
+            modes_h=cfg["modes_h"],
+            modes_w=cfg["modes_w"],
+            fno_layers=cfg["fno_layers_2d"],
+    )
+
+    if model_type == "resnet9":
+        return ResNet9_1DClassifier(1, cfg["base"], num_classes, cfg["dropout"])
+
+    if model_type == "cf_resnet9":
+        return CFResNet9_1DClassifier(1, cfg["base"], num_classes, cfg["dropout"], modes=cfg["modes"])
+
+    if model_type == "fno_resnet9":
+        return FNOResNet9_1DClassifier(
+            1, cfg["base"], num_classes, cfg["dropout"],
+            modes=cfg["modes"], fno_layers=cfg["fno_layers"]
+        )
+
+
     raise ValueError(model_type)
 
 
@@ -1286,6 +1814,110 @@ def fit_plateau(model, lr, weight_decay):
         "train_time_sec": float(time.time() - start),
     }
 
+def fit_plateau_with_loaders(model, train_loader, val_loader, lr, weight_decay):
+    """
+    Plateau definition (same as your fit_plateau, but loader-injected):
+      Stop when BOTH val_acc and val_loss fail to improve
+      beyond min_delta for `patience` epochs (after min_epochs),
+      while always keeping the best checkpoint (best val_acc, tie-break val_loss).
+    """
+    crit = nn.CrossEntropyLoss()
+    opt = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
+
+    best_state = None
+    best_val_acc = -1.0
+    best_val_loss = float("inf")
+    best_epoch = -1
+
+    since_improve = 0
+    start = time.time()
+
+    # Ensure model on correct device
+    model = model.to(device)
+
+    for epoch in range(1, PLATEAU_CFG["max_epochs"] + 1):
+        # ---- train ----
+        model.train()
+        for xb, yb in train_loader:
+            xb, yb = xb.to(device), yb.to(device)
+
+            opt.zero_grad(set_to_none=True)
+            logits = model(xb)
+            loss = crit(logits, yb)
+            loss.backward()
+            opt.step()
+
+        # ---- validate ----
+        val_loss, val_acc, _, _ = eval_model(model, val_loader, crit)
+
+        improved_acc = (val_acc > best_val_acc + PLATEAU_CFG["min_delta_acc"])
+        improved_loss = (val_loss < best_val_loss - PLATEAU_CFG["min_delta_loss"])
+
+        # checkpoint rule: prioritize val_acc, tie-break by val_loss
+        if improved_acc or (abs(val_acc - best_val_acc) <= PLATEAU_CFG["min_delta_acc"] and improved_loss):
+            best_val_acc = float(val_acc)
+            best_val_loss = float(val_loss)
+            best_epoch = epoch
+            best_state = {k: v.detach().cpu().clone() for k, v in model.state_dict().items()}
+            since_improve = 0
+        else:
+            since_improve += 1
+
+        # stop only after min_epochs
+        if epoch >= PLATEAU_CFG["min_epochs"] and since_improve >= PLATEAU_CFG["patience"]:
+            break
+
+    # restore best
+    if best_state is not None:
+        model.load_state_dict(best_state)
+
+    return model, {
+        "epochs_ran": int(epoch),
+        "best_epoch": int(best_epoch),
+        "best_val_acc": float(best_val_acc),
+        "best_val_loss": float(best_val_loss),
+        "train_time_sec": float(time.time() - start),
+    }
+
+
+def get_loaders_for_job(model_type, cfg):
+    if model_type not in ["spec_cnn", "spec_cnn_fno"]:
+        return train_loader, val_loader, test_loader
+
+    # spectrogram loaders
+    train_ds = SpectrogramDataset(
+        X_train, y_train,
+        n_fft=cfg["n_fft"],
+        hop_length=cfg["hop_length"],
+        augment=AUG_TIME_SHIFT,
+        max_shift=MAX_SHIFT,
+        cache=True,
+    )
+    val_ds = SpectrogramDataset(
+        X_val, y_val,
+        n_fft=cfg["n_fft"],
+        hop_length=cfg["hop_length"],
+        augment=False,
+        max_shift=0,
+        cache=True,
+    )
+    test_ds = SpectrogramDataset(
+        X_test, y_test,
+        n_fft=cfg["n_fft"],
+        hop_length=cfg["hop_length"],
+        augment=False,
+        max_shift=0,
+        cache=True,
+    )
+
+    train_loader_sp = DataLoader(train_ds, batch_size=128, shuffle=True, drop_last=True)
+    val_loader_sp   = DataLoader(val_ds, batch_size=256, shuffle=False)
+    test_loader_sp  = DataLoader(test_ds, batch_size=256, shuffle=False)
+
+    return train_loader_sp, val_loader_sp, test_loader_sp
+
+
+
 
 def run_one(model_type, cfg):
     """
@@ -1295,27 +1927,22 @@ def run_one(model_type, cfg):
     cfg = normalize_cfg(cfg)
     model = build_model(model_type, cfg).to(device)
 
-    # Train
+    tr_loader, va_loader, te_loader = get_loaders_for_job(model_type, cfg)
+
     epochs = regime_to_epochs(cfg["train_regime"])
     if epochs is None:
-        model, extra = fit_plateau(model, lr=cfg["lr"], weight_decay=cfg["weight_decay"])
+        # plateau training currently uses global train_loader/val_loader;
+        # easiest: modify fit_plateau to accept loaders (recommended)
+        model, extra = fit_plateau_with_loaders(model, tr_loader, va_loader, lr=cfg["lr"], weight_decay=cfg["weight_decay"])
         epochs_ran = int(extra["epochs_ran"])
     else:
-        model, _ = fit(
-            model,
-            train_loader,
-            val_loader,
-            epochs=epochs,
-            lr=cfg["lr"],
-            weight_decay=cfg["weight_decay"],
-        )
+        model, _ = fit(model, tr_loader, va_loader, epochs=epochs, lr=cfg["lr"], weight_decay=cfg["weight_decay"])
         extra = {"epochs_ran": int(epochs)}
         epochs_ran = int(epochs)
 
-    # Eval metrics
     crit = nn.CrossEntropyLoss()
-    val_loss, val_acc, _, _ = eval_model(model, val_loader, crit)
-    test_loss, test_acc, _, _ = eval_model(model, test_loader, crit)
+    val_loss, val_acc, _, _ = eval_model(model, va_loader, crit)
+    test_loss, test_acc, _, _ = eval_model(model, te_loader, crit)
 
     metrics = {
         "val_acc": float(val_acc),
@@ -1334,15 +1961,26 @@ def run_one(model_type, cfg):
 # ---- Config generation per model type ----
 def get_cfgs_for_type(model_type):
     shared = expand_grid(grid_shared)
+
     if model_type in ["base_unet", "att_unet", "resnet1d"]:
         return shared
-    else:
-        fno = expand_grid(grid_fno)
+
+    if model_type == "spec_cnn":
+        spec = expand_grid(grid_spec)
         cfgs = []
         for s in shared:
-            for f in fno:
-                c = dict(s); c.update(f); cfgs.append(c)
+            for sp in spec:
+                c = dict(s); c.update(sp); cfgs.append(c)
         return cfgs
+
+    # fno families
+    fno = expand_grid(grid_fno)
+    cfgs = []
+    for s in shared:
+        for f in fno:
+            c = dict(s); c.update(f); cfgs.append(c)
+    return cfgs
+
 
 
 def build_global_job_queue(model_types, regimes):
@@ -1364,7 +2002,7 @@ def build_global_job_queue(model_types, regimes):
     return jobs
 
 
-# In[17]:
+# In[46]:
 
 
 # ===========================================================
@@ -1424,7 +2062,7 @@ def make_overall_progress(total_remaining):
 
 
 def run_global_queue_with_eta():
-    base_order = ["base_unet", "unet_fno", "att_unet", "att_unet_fno", "resnet1d"]
+    base_order = ["base_unet", "unet_fno", "att_unet", "att_unet_fno", "resnet1d", "spec_cnn","spec_cnn_fno"]
     regimes = list(REGIMES)
 
     # Build all possible jobs in deterministic order
@@ -1514,7 +2152,7 @@ run_global_queue_with_eta()
 
 # ### Stats for the runs
 
-# In[18]:
+# In[ ]:
 
 
 # ===========================================================
@@ -1539,7 +2177,7 @@ EVAL_ALL_PATH  = MODELS_DIR / "eval_stats_all.csv"
 EVAL_BEST_PATH = MODELS_DIR / "eval_best_per_family_per_regime.csv"
 
 # Optional: restrict to known families (recommended). If you add more families later, extend this list.
-KNOWN_FAMILIES = {"base_unet", "unet_fno", "att_unet", "att_unet_fno", "resnet1d"}
+KNOWN_FAMILIES = {"base_unet", "unet_fno", "att_unet", "att_unet_fno", "resnet1d", "spec_cnn","spec_cnn_fno"}
 
 
 @torch.no_grad()
@@ -2463,7 +3101,7 @@ for fam in families:
     print(row)
 
 
-# In[17]:
+# In[27]:
 
 
 get_ipython().system('python -m nbconvert --to script Pipeline.ipynb')
@@ -2471,173 +3109,339 @@ get_ipython().system('python -m nbconvert --to script Pipeline.ipynb')
 
 # ### Tables
 
-# In[17]:
+# In[19]:
 
 
 # ===========================================================
-# DATASET IMBALANCE SUMMARY (3 datasets)
-#   - Produces per-dataset tables + combined table
-#   - Exports CSVs you can paste into LaTeX
+# Dataset imbalance tables (TRAIN / TEST + summary metrics)
+# Works with your current UCR .ts loading approach in Pipeline.py
+#   Data/<DATASET>/<DATASET>_TRAIN.ts
+#   Data/<DATASET>/<DATASET>_TEST.ts
 # ===========================================================
 
+import os
+from pathlib import Path
 import numpy as np
 import pandas as pd
-from pathlib import Path
 
+# --------- Configure which datasets to summarize ----------
 DATASETS = [
     "ECG5000",
     "NonInvasiveFetalECGThorax1",
     "NonInvasiveFetalECGThorax2",
 ]
 
-OUT_DIR = Path("reports") / "dataset_stats"
+# Robust path resolution like your Pipeline.py
+HERE = Path().resolve()
+DATA_ROOT = HERE / "Data"
+if not DATA_ROOT.exists() and (HERE.parent / "Data").exists():
+    DATA_ROOT = HERE.parent / "Data"
+
+assert DATA_ROOT.exists(), f"Data root not found: {DATA_ROOT}"
+
+OUT_DIR = Path("dataset_balance_tables")
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
-# --------------------------
-# Helper metrics
-# --------------------------
-def gini_from_probs(p):
-    """Gini impurity (1 - sum p^2). Higher = more diverse, lower = more imbalanced."""
-    p = np.asarray(p, dtype=float)
-    p = p / p.sum() if p.sum() > 0 else p
-    return float(1.0 - np.sum(p * p))
+print("DATA_ROOT:", DATA_ROOT.resolve())
+print("OUT_DIR  :", OUT_DIR.resolve())
 
-def entropy_from_probs(p, eps=1e-12):
-    """Shannon entropy. Higher = more balanced."""
-    p = np.asarray(p, dtype=float)
-    p = p / p.sum() if p.sum() > 0 else p
-    p = np.clip(p, eps, 1.0)
-    return float(-np.sum(p * np.log2(p)))
 
-def imbalance_ratio(counts):
-    """Max/Min count ratio (ignoring zeros)."""
-    c = np.asarray(counts, dtype=float)
-    c = c[c > 0]
-    if len(c) == 0:
-        return np.nan
-    return float(c.max() / c.min())
-
-def effective_num_classes(p):
+# --------- Loader: same format as in your Pipeline.py ----------
+def load_ucr_ts(ts_path: Path):
     """
-    Effective number of classes = 1 / sum(p^2).
-    Interpretable: ~ how many equally likely classes would give same concentration.
+    Minimal UCR/UEA .ts loader for univariate classification datasets.
+    Returns:
+      X (N, L) float32
+      y_raw (N,) labels as strings (original)
     """
-    p = np.asarray(p, dtype=float)
-    p = p / p.sum() if p.sum() > 0 else p
-    denom = float(np.sum(p * p))
-    return float(1.0 / denom) if denom > 0 else np.nan
+    X, y = [], []
+    in_data = False
 
-def summarize_split(y, split_name, dataset_name):
-    y = np.asarray(y).astype(int)
-    classes = np.unique(y)
-    counts = np.array([(y == c).sum() for c in classes], dtype=int)
-    total = int(counts.sum())
-    probs = counts / total if total > 0 else np.zeros_like(counts, dtype=float)
+    with ts_path.open("r", encoding="utf-8", errors="ignore") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+
+            low = line.lower()
+            if low.startswith("@data"):
+                in_data = True
+                continue
+            if not in_data:
+                continue
+
+            if ":" not in line:
+                continue
+
+            series_part, label_part = line.rsplit(":", 1)
+            label = label_part.strip()
+            series_str = series_part.strip()
+
+            vals = [v for v in series_str.split(",") if v != ""]
+            vals = np.array(vals, dtype=np.float32)
+
+            X.append(vals)
+            y.append(label)
+
+    X = np.stack(X, axis=0).astype(np.float32)
+    y = np.array(y)
+    return X, y
+
+
+def get_labels_for_dataset(dataset_name: str):
+    """
+    Returns:
+      y_train (int64, 1D), y_test (int64, 1D), class_names (list[str])
+    Label mapping is derived from TRAIN labels (as in your Pipeline.py).
+    """
+    ds_dir = DATA_ROOT / dataset_name
+    assert ds_dir.exists(), f"Dataset folder not found: {ds_dir}"
+
+    train_path = ds_dir / f"{dataset_name}_TRAIN.ts"
+    test_path  = ds_dir / f"{dataset_name}_TEST.ts"
+    assert train_path.exists(), f"Missing: {train_path}"
+    assert test_path.exists(),  f"Missing: {test_path}"
+
+    _, y_train_raw = load_ucr_ts(train_path)
+    _, y_test_raw  = load_ucr_ts(test_path)
+
+    # Map labels -> 0..K-1 using TRAIN label set
+    class_names = sorted(np.unique(y_train_raw).tolist())
+    label_to_idx = {lab: i for i, lab in enumerate(class_names)}
+
+    y_train = np.array([label_to_idx[lab] for lab in y_train_raw], dtype=np.int64)
+    y_test  = np.array([label_to_idx.get(lab, -1) for lab in y_test_raw], dtype=np.int64)
+
+    # Sanity: test labels must be subset of train labels
+    if not (y_test >= 0).all():
+        bad = np.unique(y_test[y_test < 0])
+        raise ValueError(f"Test contains labels not present in train for {dataset_name}. Bad mapped IDs: {bad}")
+
+    return y_train, y_test, class_names
+
+
+def _split_table(y: np.ndarray, class_names: list, split_name: str, dataset_name: str):
+    """
+    Returns a per-class table with counts and percentages.
+    """
+    n = len(y)
+    counts = pd.Series(y).value_counts().sort_index()
+    # Ensure all classes present in index order
+    counts = counts.reindex(range(len(class_names)), fill_value=0)
 
     df = pd.DataFrame({
         "dataset": dataset_name,
         "split": split_name,
-        "class_id": classes,
-        "count": counts,
-        "percent": probs * 100.0,
+        "class_id": np.arange(len(class_names)),
+        "class_label": class_names,
+        "count": counts.values,
+        "pct": (counts.values / max(n, 1)) * 100.0,
     })
-
-    summary = {
-        "dataset": dataset_name,
-        "split": split_name,
-        "n_samples": total,
-        "n_classes": int(len(classes)),
-        "majority_class": int(classes[np.argmax(counts)]) if total > 0 else np.nan,
-        "majority_percent": float(probs.max() * 100.0) if total > 0 else np.nan,
-        "minority_class": int(classes[np.argmin(counts)]) if total > 0 else np.nan,
-        "minority_percent": float(probs.min() * 100.0) if total > 0 else np.nan,
-        "imbalance_ratio_maxmin": imbalance_ratio(counts),
-        "gini_impurity": gini_from_probs(probs),
-        "entropy_bits": entropy_from_probs(probs),
-        "effective_num_classes": effective_num_classes(probs),
-    }
-
-    return df, summary
+    return df
 
 
-# ===========================================================
-# USER HOOK: implement ONE of the following blocks
-# ===========================================================
-def get_labels_for_dataset(name):
+def _imbalance_summary(df_split: pd.DataFrame):
     """
-    Return: y_train, y_test (1D integer arrays)
-    Implement this function for YOUR pipeline.
-
-    Choose ONE of these patterns and delete/comment the others.
+    df_split must have columns: count, pct
+    Computes a small set of interpretable imbalance metrics.
     """
+    counts = df_split["count"].to_numpy(dtype=float)
+    n = counts.sum()
+    k = len(counts)
 
-    # ---------- Pattern A: you already have a loader returning arrays ----------
-    # Example signature (adjust to yours):
-    # X_train, y_train, X_test, y_test = load_dataset(name)
-    # return y_train, y_test
+    if n <= 0 or k <= 0:
+        return dict(
+            N=int(n), K=int(k),
+            majority_pct=np.nan,
+            minority_pct=np.nan,
+            imbalance_ratio=np.nan,
+            entropy=np.nan,
+            gini=np.nan
+        )
 
-    # ---------- Pattern B: you already have datasets objects ----------
-    # Example:
-    # set_dataset(name)  # if your notebook sets globals like train_dataset/test_dataset
-    # y_train = np.array([int(train_dataset[i][1]) for i in range(len(train_dataset))])
-    # y_test  = np.array([int(test_dataset[i][1]) for i in range(len(test_dataset))])
-    # return y_train, y_test
+    # majority/minority
+    cmax = counts.max()
+    # minority among non-zero classes (more meaningful)
+    nonzero = counts[counts > 0]
+    cmin_nz = nonzero.min() if len(nonzero) else np.nan
 
-    # ---------- Pattern C: you only have DataLoaders ----------
-    # Example:
-    # set_dataset(name)  # sets train_loader/test_loader
-    # y_train = []
-    # for _, yb in train_loader:
-    #     y_train.append(yb.numpy())
-    # y_train = np.concatenate(y_train)
-    # y_test = []
-    # for _, yb in test_loader:
-    #     y_test.append(yb.numpy())
-    # y_test = np.concatenate(y_test)
-    # return y_train, y_test
+    p = counts / n
+    # entropy (normalized optional, here raw natural log)
+    entropy = float(-(p[p > 0] * np.log(p[p > 0])).sum())
+    # gini impurity
+    gini = float(1.0 - (p ** 2).sum())
 
-    raise NotImplementedError(
-        "Implement get_labels_for_dataset(name) using your existing data loading pipeline."
+    return dict(
+        N=int(n),
+        K=int(k),
+        majority_pct=float((cmax / n) * 100.0),
+        minority_pct=float((cmin_nz / n) * 100.0) if not np.isnan(cmin_nz) else np.nan,
+        imbalance_ratio=float(cmax / cmin_nz) if (not np.isnan(cmin_nz) and cmin_nz > 0) else np.nan,
+        entropy=entropy,
+        gini=gini,
     )
 
 
-# ===========================================================
-# Main execution
-# ===========================================================
-all_class_tables = []
-all_split_summaries = []
+# --------- Main: build tables for all datasets ----------
+all_train_tables = []
+all_test_tables = []
+summary_rows = []
 
 for ds in DATASETS:
-    ytr, yte = get_labels_for_dataset(ds)
+    print("\n---", ds, "---")
+    ytr, yte, class_names = get_labels_for_dataset(ds)
 
-    df_tr, sum_tr = summarize_split(ytr, "train", ds)
-    df_te, sum_te = summarize_split(yte, "test", ds)
+    df_tr = _split_table(ytr, class_names, "train", ds)
+    df_te = _split_table(yte, class_names, "test", ds)
 
-    # Export per-class tables
-    df_classes = pd.concat([df_tr, df_te], ignore_index=True)
-    df_classes.to_csv(OUT_DIR / f"{ds}_class_counts.csv", index=False)
+    # Save per-dataset split tables
+    df_tr.to_csv(OUT_DIR / f"{ds}__train_class_distribution.csv", index=False)
+    df_te.to_csv(OUT_DIR / f"{ds}__test_class_distribution.csv", index=False)
 
-    # Export split summary table (one row per split)
-    df_summary = pd.DataFrame([sum_tr, sum_te])
-    df_summary.to_csv(OUT_DIR / f"{ds}_split_summary.csv", index=False)
+    # Summary metrics
+    tr_sum = _imbalance_summary(df_tr)
+    te_sum = _imbalance_summary(df_te)
 
-    all_class_tables.append(df_classes)
-    all_split_summaries.append(df_summary)
+    summary_rows.append({
+        "dataset": ds,
+        "train_N": tr_sum["N"],
+        "train_K": tr_sum["K"],
+        "train_majority_pct": tr_sum["majority_pct"],
+        "train_minority_pct": tr_sum["minority_pct"],
+        "train_imbalance_ratio": tr_sum["imbalance_ratio"],
+        "train_entropy": tr_sum["entropy"],
+        "train_gini": tr_sum["gini"],
 
-    print(f"\n=== {ds} ===")
-    display(df_summary)
-    display(df_classes)
+        "test_N": te_sum["N"],
+        "test_K": te_sum["K"],
+        "test_majority_pct": te_sum["majority_pct"],
+        "test_minority_pct": te_sum["minority_pct"],
+        "test_imbalance_ratio": te_sum["imbalance_ratio"],
+        "test_entropy": te_sum["entropy"],
+        "test_gini": te_sum["gini"],
+    })
 
-# Combined exports
-df_all_classes = pd.concat(all_class_tables, ignore_index=True)
-df_all_summ = pd.concat(all_split_summaries, ignore_index=True)
+    all_train_tables.append(df_tr)
+    all_test_tables.append(df_te)
 
-df_all_classes.to_csv(OUT_DIR / "ALL_DATASETS_class_counts.csv", index=False)
-df_all_summ.to_csv(OUT_DIR / "ALL_DATASETS_split_summary.csv", index=False)
+# Combined tables across datasets (optional but useful)
+df_all_train = pd.concat(all_train_tables, ignore_index=True)
+df_all_test  = pd.concat(all_test_tables, ignore_index=True)
+df_summary   = pd.DataFrame(summary_rows)
 
-print("\nSaved outputs to:", OUT_DIR.resolve())
-print(" - Per dataset: <DATASET>_class_counts.csv and <DATASET>_split_summary.csv")
-print(" - Combined: ALL_DATASETS_class_counts.csv and ALL_DATASETS_split_summary.csv")
+df_all_train.to_csv(OUT_DIR / "ALL__train_class_distribution.csv", index=False)
+df_all_test.to_csv(OUT_DIR / "ALL__test_class_distribution.csv", index=False)
+df_summary.to_csv(OUT_DIR / "ALL__imbalance_summary.csv", index=False)
+
+print("\nSaved:")
+print(" -", (OUT_DIR / "ALL__imbalance_summary.csv").resolve())
+print(" -", (OUT_DIR / "ALL__train_class_distribution.csv").resolve())
+print(" -", (OUT_DIR / "ALL__test_class_distribution.csv").resolve())
+
+display(df_summary)
+
+
+# In[26]:
+
+
+import pandas as pd
+from pathlib import Path
+
+CSV_PATH = Path("models/ECG5000/param_matched_cross_family.csv")
+OUT_TEX  = Path("tables") / "param_matched_cross_family.tex"
+OUT_TEX.parent.mkdir(exist_ok=True)
+
+df = pd.read_csv(CSV_PATH)
+
+# -------------------------
+# 1) Keep only the key columns for the report
+# -------------------------
+keep = [
+    "reference_family",
+    "ref_train_regime",
+    "target_family",
+    "matched",
+    "ref_params_million",
+    "target_params_million",
+    "param_ratio",
+    "ref_macro_f1",
+    "macro_f1",
+    "delta_macro_f1",
+    "ref_balanced_acc",
+    "balanced_acc",
+    "delta_balanced_acc",
+]
+
+missing = [c for c in keep if c not in df.columns]
+if missing:
+    raise ValueError(f"Missing expected columns in CSV: {missing}")
+
+df = df[keep].copy()
+
+# -------------------------
+# 2) Sort for readability
+#    - "matched" True first
+#    - strongest wins (delta_macro_f1 desc) first
+# -------------------------
+df = df.sort_values(
+    ["reference_family", "ref_train_regime", "target_family", "matched", "delta_macro_f1"],
+    ascending=[True, True, True, False, False]
+)
+
+# -------------------------
+# 3) Rename columns (paper-friendly)
+# -------------------------
+df = df.rename(columns={
+    "reference_family": "Reference",
+    "ref_train_regime": "Ref Regime",
+    "target_family": "Target",
+    "matched": "Within±10%",
+    "ref_params_million": "Ref Params (M)",
+    "target_params_million": "Target Params (M)",
+    "param_ratio": "Param Ratio",
+    "ref_macro_f1": "Ref Macro-F1",
+    "macro_f1": "Target Macro-F1",
+    "delta_macro_f1": "Δ Macro-F1",
+    "ref_balanced_acc": "Ref BalAcc",
+    "balanced_acc": "Target BalAcc",
+    "delta_balanced_acc": "Δ BalAcc",
+})
+
+# -------------------------
+# 4) Format numeric columns
+# -------------------------
+def fmt3(x):
+    try:
+        return f"{float(x):.3f}"
+    except Exception:
+        return x
+
+def fmt2(x):
+    try:
+        return f"{float(x):.2f}"
+    except Exception:
+        return x
+
+for col in ["Ref Macro-F1", "Target Macro-F1", "Δ Macro-F1", "Ref BalAcc", "Target BalAcc", "Δ BalAcc", "Param Ratio"]:
+    df[col] = df[col].map(fmt3)
+
+for col in ["Ref Params (M)", "Target Params (M)"]:
+    df[col] = df[col].map(fmt2)
+
+# Make matched column LaTeX-friendly boolean
+df["Within±10%"] = df["Within±10%"].map(lambda v: "Yes" if bool(v) else "No")
+
+# -------------------------
+# 5) Export LaTeX table body
+# -------------------------
+latex = df.to_latex(
+    index=False,
+    escape=False,
+    column_format="l l l c r r r r r r r r r",
+)
+
+OUT_TEX.write_text(latex, encoding="utf-8")
+print("Saved LaTeX table to:", OUT_TEX.resolve())
 
 
 # In[ ]:

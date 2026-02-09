@@ -1,0 +1,27 @@
+TODO:
+
+Újra darabolni az ECG5000 60/20/20. (done)
+
+Modellek: FNO-s cikkben szereplő modellek. Spektrogram alapú modellek. Vision transformert is pl. kb 3-4 modell összesen. (Spektrogram and FNO cikk models are done)
+
+Anomália detectiont is megnézni.
+
+Metrikák: F1, balanced accuracy, 
+
+1D-s FNO-s modell kisebb és gyorsabb.
+
+2D-s modelleket kiegészíteni vision transformerrel.
+
+50 epoch minden alkalommal!!! (ECG5000-re)
+
+Scheduler/warmup alkalmazása. (One-cicle vagy cosine)
+
+2D-s ResNetbe beépíteni FNO-t. 
+
+
+
+
+"Kuli" munka:
+
+10-20 folyóirat a témára illeszkedve. Szintre/rangra, bírálati időre, első döntési időre "rákérdezni".
+
