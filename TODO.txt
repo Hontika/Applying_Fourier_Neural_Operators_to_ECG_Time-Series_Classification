@@ -12,11 +12,11 @@ Metrikák: F1, balanced accuracy,
 
 2D-s modelleket kiegészíteni vision transformerrel.
 
-50 epoch minden alkalommal!!! (ECG5000-re)
+50 epoch minden alkalommal!!! (ECG5000-re) (done)
 
 Scheduler/warmup alkalmazása. (One-cicle vagy cosine)
 
-2D-s ResNetbe beépíteni FNO-t. 
+2D-s ResNetbe beépíteni FNO-t. (done)
 
 
 
@@ -25,3 +25,22 @@ Scheduler/warmup alkalmazása. (One-cicle vagy cosine)
 
 10-20 folyóirat a témára illeszkedve. Szintre/rangra, bírálati időre, első döntési időre "rákérdezni".
 
+Béláék cikkének a hivatkozáslistájából nézni folyóiratot
+
+Cikkek hivatkozáslistája
+
+Folyóirati rangsorok:
+
+    https://www.scimagojr.com/
+
+    https://www.scopus.com/sources.uri
+
+Norvég lista (predátor folyóiratok ellen):
+
+    https://kanalregister.hkdir.no/sok?option=journals&input=
+
+Egyetemmel szerződött folyóiratok:
+
+    https://www.inf.elte.hu/konyvtar
+
+Appliead folyóirat
