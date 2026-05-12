@@ -19,3 +19,6 @@ models/NonInvasiveFetalECGThorax2/att_unet_fno
 models/NonInvasiveFetalECGThorax2/base_unet
 models/NonInvasiveFetalECGThorax2/unet_fno
 models/NonInvasiveFetalECGThorax2/resnet1d
+chat_context.md
+Manuscript
+reports
