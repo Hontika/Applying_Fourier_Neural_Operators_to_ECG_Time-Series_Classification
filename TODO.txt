@@ -10,7 +10,9 @@ Metrikák: F1, balanced accuracy,
 
 1D-s FNO-s modell kisebb és gyorsabb.
 
-2D-s modelleket kiegészíteni vision transformerrel.
+2D-s modelleket kiegészíteni vision transformerrel !!!!!!!!!!! (Ez kell. Tuti.)
+
+Classification head-et leszedni és kicserélni.
 
 50 epoch minden alkalommal!!! (ECG5000-re) (done)
 
@@ -44,3 +46,7 @@ Egyetemmel szerződött folyóiratok:
     https://www.inf.elte.hu/konyvtar
 
 Appliead folyóirat
+
+Adathalmazt és metrikákat hivatkozni.
+
+ECG5000-es adathalmazt használókat keresni és idézni.

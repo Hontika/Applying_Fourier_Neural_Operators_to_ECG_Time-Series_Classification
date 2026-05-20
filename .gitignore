@@ -9,6 +9,7 @@ models/ECG5000/cf_resnet9
 models/ECG5000/fno_resnet9
 models/ECG5000/spec_cnn
 models/ECG5000/spec_cnn_fno
+models/ECG5000/spec_vit
 models/NonInvasiveFetalECGThorax1/att_unet
 models/NonInvasiveFetalECGThorax1/att_unet_fno
 models/NonInvasiveFetalECGThorax1/base_unet
