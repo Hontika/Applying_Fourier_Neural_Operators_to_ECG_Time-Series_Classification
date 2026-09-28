@@ -1,0 +1,23 @@
+\begin{table}
+\caption{Configurations of validation-selected family winners for Non-Invasive Fetal ECG Thorax 2.}
+\label{tab:noninvasivefetalecgthorax2_best_model_configurations}
+\begin{tabular}{llllllllllllllll}
+\toprule
+Dataset & Architecture name & Family key & Base width & Learning rate & Weight decay & Dropout & Normalization & LR scheduler & Warmup epochs & Training regime & Model seed & Split seed & Architecture-specific configuration & Run ID & Config key \\
+\midrule
+NonInvasiveFetalECGThorax2 & Base U-Net & base\_unet & 48 & 0.0005 & 0.0001 & 0.00 & per\_sample\_zscore & cosine\_warmup & 5 & e50 & 0 & 42 & - & run\_300 & 539169d95cec643aebca7801079a2e74 \\
+NonInvasiveFetalECGThorax2 & U-Net + FNO & unet\_fno & 48 & 0.0005 & 0 & 0.20 & per\_sample\_zscore & cosine\_warmup & 5 & e50 & 42 & 42 & modes=24; fno\_layers=2 & run\_1782 & c5a5663135c484873d1c593b4d3c348c \\
+NonInvasiveFetalECGThorax2 & Attention U-Net & att\_unet & 48 & 0.0005 & 0.0001 & 0.00 & per\_sample\_zscore & cosine & 0 & e50 & 7 & 42 & - & run\_302 & e619ded72efc1130d9ed61877660ade8 \\
+NonInvasiveFetalECGThorax2 & Attention U-Net + FNO & att\_unet\_fno & 32 & 0.001 & 0.0001 & 0.00 & per\_sample\_zscore & cosine\_warmup & 5 & e50 & 0 & 42 & modes=16; fno\_layers=1 & run\_831 & 3c66e088dfefc907a77538278925d0c7 \\
+NonInvasiveFetalECGThorax2 & ResNet1D & resnet1d & 32 & 0.001 & 0 & 0.00 & per\_sample\_zscore & cosine\_warmup & 5 & e50 & 7 & 42 & - & run\_114 & 0f2128afb06e15030532ec75cf938cdc \\
+NonInvasiveFetalECGThorax2 & ResNet9 & resnet9 & 48 & 0.001 & 0 & 0.20 & per\_sample\_zscore & cosine\_warmup & 5 & e50 & 42 & 42 & - & run\_243 & 372e7d36bafb2c115a06b84c216a2816 \\
+NonInvasiveFetalECGThorax2 & CF-ResNet9 & cf\_resnet9 & 32 & 0.0005 & 0.0001 & 0.10 & per\_sample\_zscore & cosine & 0 & e50 & 0 & 42 & modes=16 & run\_605 & 6602ebda6135eb87481d62ab1f533a75 \\
+NonInvasiveFetalECGThorax2 & CF-ResNet9 (train z-score) & cf\_resnet9\_train\_zscore & 32 & 0.001 & 0 & 0.20 & train\_global\_zscore & cosine\_warmup & 5 & e50 & 42 & 42 & modes=16 & run\_396 & 7642165ef4662f85bafcec6cc6c6ff06 \\
+NonInvasiveFetalECGThorax2 & FNO-ResNet9 & fno\_resnet9 & 48 & 0.001 & 0 & 0.00 & per\_sample\_zscore & cosine\_warmup & 5 & e50 & 0 & 42 & modes=16; fno\_layers=2 & run\_1326 & 74f8dc5be0393c83ed7ae2647bd0097f \\
+NonInvasiveFetalECGThorax2 & Spectral CNN & spec\_cnn & 48 & 0.001 & 0 & 0.20 & per\_sample\_zscore & cosine & 0 & e50 & 0 & 42 & n\_fft=64; hop\_length=16 & run\_1451 & 08e67973ab4250992c6f514a12f1cb73 \\
+NonInvasiveFetalECGThorax2 & Spectral CNN + FNO & spec\_cnn\_fno & 32 & 0.0005 & 0 & 0.20 & per\_sample\_zscore & cosine\_warmup & 5 & e50 & 0 & 42 & n\_fft=32; hop\_length=4; modes\_h=8; modes\_w=8; fno\_layers\_2d=3 & run\_2910 & 925757698422d4d9ff69c270a19fc68b \\
+NonInvasiveFetalECGThorax2 & Spectral ViT & spec\_vit & 32 & 0.0005 & 0.0001 & 0.10 & per\_sample\_zscore & none & 0 & e50 & 0 & 42 & n\_fft=64; hop\_length=16; patch\_size=[4, 2]; vit\_depth=3; num\_heads=4; mlp\_ratio=2 & run\_406 & 2ed8686f2a6a2218eef94a4ab27485ad \\
+NonInvasiveFetalECGThorax2 & Spectral ViT + FNO & spec\_vit\_fno & 48 & 0.0005 & 0.0001 & 0.10 & per\_sample\_zscore & cosine\_warmup & 5 & e50 & 7 & 42 & n\_fft=32; hop\_length=8; patch\_size=[4, 2]; vit\_depth=2; num\_heads=4; mlp\_ratio=2; modes\_h=16; modes\_w=8; fno\_layers\_2d=2 & run\_2374 & a0a29ada85a629755387b7ff40c3354c \\
+\bottomrule
+\end{tabular}
+\end{table}

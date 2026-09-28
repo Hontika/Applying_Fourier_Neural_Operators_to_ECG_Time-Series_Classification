@@ -37,7 +37,7 @@ This is performed through a two-stage stratified split with fixed `random_state=
 Each sample is normalized independently by z-score normalization:
 
 \[
-\hat{x} = \frac{x - \mu(x)}{\sigma(x) + \varepsilon}
+\hat{x} = \frac{x - \mu(x)}{\sigma(x)}
 \]
 
 where the mean and standard deviation are computed per sample.

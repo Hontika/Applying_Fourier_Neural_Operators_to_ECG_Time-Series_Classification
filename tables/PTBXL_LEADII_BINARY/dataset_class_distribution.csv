@@ -1,0 +1,7 @@
+dataset,dataset_label,split_scope,split_protocol,split,class_id,class_label,count,percentage
+PTBXL_LEADII_BINARY,"PTB-XL (Lead II, binary)",model_evaluation,ptbxl_strat_fold_1_8_train_9_val_10_test,train,0,NORM,7243,42.39639428705221
+PTBXL_LEADII_BINARY,"PTB-XL (Lead II, binary)",model_evaluation,ptbxl_strat_fold_1_8_train_9_val_10_test,train,1,ABNORMAL,9841,57.60360571294779
+PTBXL_LEADII_BINARY,"PTB-XL (Lead II, binary)",model_evaluation,ptbxl_strat_fold_1_8_train_9_val_10_test,val,0,NORM,914,42.590866728797764
+PTBXL_LEADII_BINARY,"PTB-XL (Lead II, binary)",model_evaluation,ptbxl_strat_fold_1_8_train_9_val_10_test,val,1,ABNORMAL,1232,57.409133271202236
+PTBXL_LEADII_BINARY,"PTB-XL (Lead II, binary)",model_evaluation,ptbxl_strat_fold_1_8_train_9_val_10_test,test,0,NORM,912,42.2613531047266
+PTBXL_LEADII_BINARY,"PTB-XL (Lead II, binary)",model_evaluation,ptbxl_strat_fold_1_8_train_9_val_10_test,test,1,ABNORMAL,1246,57.738646895273405

@@ -1,0 +1,39 @@
+\begin{longtable}{lllllllllllllll}
+\caption{Focused parameter-matched comparisons for Fetal ECG Thorax 1. Configurations were selected using validation macro-F1.} \label{tab:noninvasivefetalecgthorax1_paired_fno_comparison} \\
+\toprule
+Comparison & Tolerance (\%) & Matched & Baseline parameters (M) & Target parameters (M) & Parameter difference (\%) & Baseline validation macro-F1 & Target validation macro-F1 & Validation macro-F1 difference & Baseline test macro-F1 & Target test macro-F1 & Test macro-F1 difference & Baseline test balanced accuracy & Target test balanced accuracy & Test balanced-accuracy difference \\
+\midrule
+\endfirsthead
+\caption[]{Focused parameter-matched comparisons for Fetal ECG Thorax 1. Configurations were selected using validation macro-F1.} \\
+\toprule
+Comparison & Tolerance (\%) & Matched & Baseline parameters (M) & Target parameters (M) & Parameter difference (\%) & Baseline validation macro-F1 & Target validation macro-F1 & Validation macro-F1 difference & Baseline test macro-F1 & Target test macro-F1 & Test macro-F1 difference & Baseline test balanced accuracy & Target test balanced accuracy & Test balanced-accuracy difference \\
+\midrule
+\endhead
+\midrule
+\multicolumn{15}{r}{Continued on next page} \\
+\midrule
+\endfoot
+\bottomrule
+\endlastfoot
+U-Net vs U-Net-FNO & 10.0 & No & 0.37 & - & - & 0.866 & - & - & 0.825 & - & - & 0.827 & - & - \\
+U-Net vs U-Net-FNO & 15.0 & No & 0.37 & - & - & 0.866 & - & - & 0.825 & - & - & 0.827 & - & - \\
+U-Net vs U-Net-FNO & 20.0 & Yes & 0.37 & 0.31 & -15.1 & 0.866 & 0.942 & 0.076 & 0.825 & 0.945 & 0.120 & 0.827 & 0.945 & 0.118 \\
+Attention U-Net vs Attention U-Net-FNO & 10.0 & No & 0.38 & - & - & 0.846 & - & - & 0.824 & - & - & 0.825 & - & - \\
+Attention U-Net vs Attention U-Net-FNO & 15.0 & No & 0.38 & - & - & 0.846 & - & - & 0.824 & - & - & 0.825 & - & - \\
+Attention U-Net vs Attention U-Net-FNO & 20.0 & Yes & 0.38 & 0.45 & 17.8 & 0.846 & 0.955 & 0.110 & 0.824 & 0.930 & 0.106 & 0.825 & 0.930 & 0.105 \\
+ResNet9 vs CF-ResNet9 & 10.0 & Yes & 0.17 & 0.16 & -3.3 & 0.865 & 0.958 & 0.093 & 0.833 & 0.937 & 0.105 & 0.833 & 0.938 & 0.105 \\
+ResNet9 vs CF-ResNet9 & 15.0 & Yes & 0.17 & 0.16 & -3.3 & 0.865 & 0.958 & 0.093 & 0.833 & 0.937 & 0.105 & 0.833 & 0.938 & 0.105 \\
+ResNet9 vs CF-ResNet9 & 20.0 & Yes & 0.17 & 0.16 & -3.3 & 0.865 & 0.958 & 0.093 & 0.833 & 0.937 & 0.105 & 0.833 & 0.938 & 0.105 \\
+CF-ResNet9 per-sample vs train-global z-score & 10.0 & Yes & 0.46 & 0.46 & 0.0 & 0.964 & 0.961 & -0.003 & 0.943 & 0.945 & 0.002 & 0.944 & 0.945 & 0.001 \\
+CF-ResNet9 per-sample vs train-global z-score & 15.0 & Yes & 0.46 & 0.46 & 0.0 & 0.964 & 0.961 & -0.003 & 0.943 & 0.945 & 0.002 & 0.944 & 0.945 & 0.001 \\
+CF-ResNet9 per-sample vs train-global z-score & 20.0 & Yes & 0.46 & 0.46 & 0.0 & 0.964 & 0.961 & -0.003 & 0.943 & 0.945 & 0.002 & 0.944 & 0.945 & 0.001 \\
+ResNet9 vs FNO-ResNet9 & 10.0 & Yes & 0.17 & 0.17 & 2.6 & 0.865 & 0.960 & 0.095 & 0.833 & 0.949 & 0.116 & 0.833 & 0.949 & 0.117 \\
+ResNet9 vs FNO-ResNet9 & 15.0 & Yes & 0.17 & 0.17 & 2.6 & 0.865 & 0.960 & 0.095 & 0.833 & 0.949 & 0.116 & 0.833 & 0.949 & 0.117 \\
+ResNet9 vs FNO-ResNet9 & 20.0 & Yes & 0.17 & 0.17 & 2.6 & 0.865 & 0.960 & 0.095 & 0.833 & 0.949 & 0.116 & 0.833 & 0.949 & 0.117 \\
+Spectrogram CNN vs Spectrogram CNN-FNO & 10.0 & No & 0.10 & - & - & 0.623 & - & - & 0.644 & - & - & 0.649 & - & - \\
+Spectrogram CNN vs Spectrogram CNN-FNO & 15.0 & No & 0.10 & - & - & 0.623 & - & - & 0.644 & - & - & 0.649 & - & - \\
+Spectrogram CNN vs Spectrogram CNN-FNO & 20.0 & No & 0.10 & - & - & 0.623 & - & - & 0.644 & - & - & 0.649 & - & - \\
+Spectrogram ViT vs Spectrogram ViT-FNO & 10.0 & No & 0.92 & - & - & 0.892 & - & - & 0.876 & - & - & 0.876 & - & - \\
+Spectrogram ViT vs Spectrogram ViT-FNO & 15.0 & Yes & 0.92 & 0.82 & -10.6 & 0.892 & 0.893 & 0.001 & 0.876 & 0.875 & -0.001 & 0.876 & 0.876 & 0.000 \\
+Spectrogram ViT vs Spectrogram ViT-FNO & 20.0 & Yes & 0.92 & 0.82 & -10.6 & 0.892 & 0.893 & 0.001 & 0.876 & 0.875 & -0.001 & 0.876 & 0.876 & 0.000 \\
+\end{longtable}

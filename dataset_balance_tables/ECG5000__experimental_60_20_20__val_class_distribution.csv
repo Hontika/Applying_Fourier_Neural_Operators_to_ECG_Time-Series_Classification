@@ -1,6 +1,0 @@
-dataset,split_source,split,class_id,class_label,count,pct
-ECG5000,experimental_60_20_20,val,0,1,584,58.4
-ECG5000,experimental_60_20_20,val,1,2,353,35.3
-ECG5000,experimental_60_20_20,val,2,3,19,1.9
-ECG5000,experimental_60_20_20,val,3,4,39,3.9
-ECG5000,experimental_60_20_20,val,4,5,5,0.5

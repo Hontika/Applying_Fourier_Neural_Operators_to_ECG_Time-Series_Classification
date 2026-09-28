@@ -1,0 +1,4 @@
+dataset,dataset_label,split_scope,split_protocol,split,sample_count,class_count,majority_count,minority_count,majority_percentage,minority_percentage,imbalance_ratio,entropy,normalized_entropy,gini_impurity
+PTBXL_LEADII_BINARY,"PTB-XL (Lead II, binary)",model_evaluation,ptbxl_strat_fold_1_8_train_9_val_10_test,train,17084,2,9841,7243,57.60360571294779,42.39639428705221,1.3586911500759353,0.6815392317668088,0.983253269841249,0.4884370360324055
+PTBXL_LEADII_BINARY,"PTB-XL (Lead II, binary)",model_evaluation,ptbxl_strat_fold_1_8_train_9_val_10_test,val,2146,2,1232,914,57.409133271202236,42.590866728797764,1.3479212253829322,0.6821275924207266,0.9841020948389104,0.4890209488339128
+PTBXL_LEADII_BINARY,"PTB-XL (Lead II, binary)",model_evaluation,ptbxl_strat_fold_1_8_train_9_val_10_test,test,2158,2,1246,912,57.738646895273405,42.2613531047266,1.3662280701754386,0.6811215664229693,0.9826507061209405,0.48802266884605494

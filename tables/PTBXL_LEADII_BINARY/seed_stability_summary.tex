@@ -1,0 +1,31 @@
+\begin{longtable}{llllllllllll}
+\caption{Three-seed stability of validation-selected configurations for PTB-XL (Lead II, binary).} \label{tab:ptbxl_leadii_binary_seed_stability} \\
+\toprule
+Architecture name & Seeds & Training regime & Parameters (M) & Validation macro-F1 mean & Validation macro-F1 SD & Test macro-F1 mean & Test macro-F1 SD & Test balanced accuracy mean & Test balanced accuracy SD & Test accuracy mean & Test accuracy SD \\
+\midrule
+\endfirsthead
+\caption[]{Three-seed stability of validation-selected configurations for PTB-XL (Lead II, binary).} \\
+\toprule
+Architecture name & Seeds & Training regime & Parameters (M) & Validation macro-F1 mean & Validation macro-F1 SD & Test macro-F1 mean & Test macro-F1 SD & Test balanced accuracy mean & Test balanced accuracy SD & Test accuracy mean & Test accuracy SD \\
+\midrule
+\endhead
+\midrule
+\multicolumn{12}{r}{Continued on next page} \\
+\midrule
+\endfoot
+\bottomrule
+\endlastfoot
+Base U-Net & 0,7,42 & e50 & 0.368 & 0.817 & 0.001 & 0.804 & 0.005 & 0.811 & 0.005 & 0.806 & 0.004 \\
+U-Net + FNO & 0,7,42 & e50 & 0.574 & 0.815 & 0.003 & 0.797 & 0.006 & 0.806 & 0.008 & 0.799 & 0.006 \\
+Attention U-Net & 0,7,42 & e50 & 0.380 & 0.818 & 0.003 & 0.806 & 0.002 & 0.811 & 0.006 & 0.808 & 0.001 \\
+Attention U-Net + FNO & 0,7,42 & e50 & 0.580 & 0.814 & 0.002 & 0.799 & 0.003 & 0.806 & 0.005 & 0.801 & 0.003 \\
+ResNet1D & 0,7,42 & e50 & 0.997 & 0.817 & 0.007 & 0.801 & 0.005 & 0.807 & 0.003 & 0.802 & 0.005 \\
+ResNet9 & 0,7,42 & e50 & 0.166 & 0.815 & 0.002 & 0.800 & 0.005 & 0.805 & 0.005 & 0.803 & 0.006 \\
+CF-ResNet9 & 0,7,42 & e50 & 0.362 & 0.814 & 0.003 & 0.800 & 0.009 & 0.806 & 0.009 & 0.802 & 0.009 \\
+CF-ResNet9 (train z-score) & 0,7,42 & e50 & 0.454 & 0.818 & 0.001 & 0.799 & 0.005 & 0.805 & 0.004 & 0.800 & 0.006 \\
+FNO-ResNet9 & 0,7,42 & e50 & 0.292 & 0.813 & 0.004 & 0.794 & 0.010 & 0.800 & 0.009 & 0.795 & 0.010 \\
+Spectral CNN & 0,7,42 & e50 & 0.102 & 0.816 & 0.009 & 0.785 & 0.002 & 0.792 & 0.001 & 0.786 & 0.002 \\
+Spectral CNN + FNO & 0,7,42 & e50 & 2.662 & 0.807 & 0.003 & 0.784 & 0.004 & 0.790 & 0.007 & 0.787 & 0.002 \\
+Spectral ViT & 0,7,42 & e50 & 0.406 & 0.800 & 0.006 & 0.775 & 0.002 & 0.783 & 0.002 & 0.776 & 0.002 \\
+Spectral ViT + FNO & 0,7,42 & e50 & 1.340 & 0.797 & 0.002 & 0.770 & 0.003 & 0.772 & 0.003 & 0.774 & 0.003 \\
+\end{longtable}

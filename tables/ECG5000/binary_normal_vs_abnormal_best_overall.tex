@@ -1,0 +1,31 @@
+\begin{longtable}{llrlllllllllllll}
+\caption{Held-out binary normal-versus-abnormal performance for ECG5000.} \label{tab:ecg5000_binary_normal_abnormal} \\
+\toprule
+Architecture name & Model seed & Normal class & Positive class & Binary accuracy & Binary F1 & Binary balanced accuracy & Sensitivity & Specificity & Positive precision & AUROC & AUPRC & TP & TN & FP & FN \\
+\midrule
+\endfirsthead
+\caption[]{Held-out binary normal-versus-abnormal performance for ECG5000.} \\
+\toprule
+Architecture name & Model seed & Normal class & Positive class & Binary accuracy & Binary F1 & Binary balanced accuracy & Sensitivity & Specificity & Positive precision & AUROC & AUPRC & TP & TN & FP & FN \\
+\midrule
+\endhead
+\midrule
+\multicolumn{16}{r}{Continued on next page} \\
+\midrule
+\endfoot
+\bottomrule
+\endlastfoot
+Base U-Net & 42 & 1 & abnormal (ECG5000 classes 2-5) & 0.993 & 0.992 & 0.993 & 0.993 & 0.993 & 0.990 & 0.999 & 0.999 & 413 & 580 & 4 & 3 \\
+U-Net + FNO & 0 & 1 & abnormal (ECG5000 classes 2-5) & 0.996 & 0.995 & 0.996 & 0.995 & 0.997 & 0.995 & 1.000 & 1.000 & 414 & 582 & 2 & 2 \\
+Attention U-Net & 7 & 1 & abnormal (ECG5000 classes 2-5) & 0.989 & 0.987 & 0.987 & 0.974 & 1.000 & 1.000 & 1.000 & 0.999 & 405 & 584 & 0 & 11 \\
+Attention U-Net + FNO & 42 & 1 & abnormal (ECG5000 classes 2-5) & 0.998 & 0.998 & 0.998 & 0.995 & 1.000 & 1.000 & 1.000 & 1.000 & 414 & 584 & 0 & 2 \\
+ResNet1D & 7 & 1 & abnormal (ECG5000 classes 2-5) & 0.996 & 0.995 & 0.995 & 0.990 & 1.000 & 1.000 & 1.000 & 0.999 & 412 & 584 & 0 & 4 \\
+ResNet9 & 7 & 1 & abnormal (ECG5000 classes 2-5) & 0.992 & 0.990 & 0.991 & 0.986 & 0.997 & 0.995 & 1.000 & 0.999 & 410 & 582 & 2 & 6 \\
+CF-ResNet9 & 0 & 1 & abnormal (ECG5000 classes 2-5) & 0.996 & 0.995 & 0.996 & 0.995 & 0.997 & 0.995 & 1.000 & 1.000 & 414 & 582 & 2 & 2 \\
+CF-ResNet9 (train z-score) & 7 & 1 & abnormal (ECG5000 classes 2-5) & 0.996 & 0.995 & 0.996 & 0.993 & 0.998 & 0.998 & 1.000 & 1.000 & 413 & 583 & 1 & 3 \\
+FNO-ResNet9 & 0 & 1 & abnormal (ECG5000 classes 2-5) & 0.996 & 0.995 & 0.996 & 0.993 & 0.998 & 0.998 & 1.000 & 1.000 & 413 & 583 & 1 & 3 \\
+Spectral CNN & 7 & 1 & abnormal (ECG5000 classes 2-5) & 0.990 & 0.988 & 0.989 & 0.981 & 0.997 & 0.995 & 0.999 & 0.999 & 408 & 582 & 2 & 8 \\
+Spectral CNN + FNO & 0 & 1 & abnormal (ECG5000 classes 2-5) & 0.995 & 0.994 & 0.994 & 0.988 & 1.000 & 1.000 & 1.000 & 1.000 & 411 & 584 & 0 & 5 \\
+Spectral ViT & 0 & 1 & abnormal (ECG5000 classes 2-5) & 0.991 & 0.989 & 0.989 & 0.978 & 1.000 & 1.000 & 1.000 & 1.000 & 407 & 584 & 0 & 9 \\
+Spectral ViT + FNO & 0 & 1 & abnormal (ECG5000 classes 2-5) & 0.992 & 0.990 & 0.991 & 0.983 & 0.998 & 0.998 & 0.999 & 0.999 & 409 & 583 & 1 & 7 \\
+\end{longtable}

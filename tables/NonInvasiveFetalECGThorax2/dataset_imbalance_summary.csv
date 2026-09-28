@@ -1,0 +1,6 @@
+dataset,dataset_label,split_scope,split_protocol,split,sample_count,class_count,majority_count,minority_count,majority_percentage,minority_percentage,imbalance_ratio,entropy,normalized_entropy,gini_impurity
+NonInvasiveFetalECGThorax2,Fetal ECG Thorax 2,archive_provided,ucr_archive_train_test,train,1800,42,56,35,3.111111111111111,1.9444444444444444,1.6,3.731053705717261,0.9982299365000735,0.9758697530864198
+NonInvasiveFetalECGThorax2,Fetal ECG Thorax 2,archive_provided,ucr_archive_train_test,test,1965,42,58,33,2.9516539440203564,1.6793893129770994,1.7575757575757576,3.7312904514097625,0.9982932769546026,0.9758918477944176
+NonInvasiveFetalECGThorax2,Fetal ECG Thorax 2,model_evaluation,experimental_60_20_20_seed42,train,2259,42,59,45,2.611775121735281,1.9920318725099602,1.3111111111111111,3.7363198788364587,0.999638882088372,0.9761271670976808
+NonInvasiveFetalECGThorax2,Fetal ECG Thorax 2,model_evaluation,experimental_60_20_20_seed42,val,753,42,20,15,2.6560424966799467,1.9920318725099602,1.3333333333333333,3.7361302583058826,0.9995881498006256,0.976118544855549
+NonInvasiveFetalECGThorax2,Fetal ECG Thorax 2,model_evaluation,experimental_60_20_20_seed42,test,753,42,20,15,2.6560424966799467,1.9920318725099602,1.3333333333333333,3.7362176608092237,0.9996115340245585,0.9761220721364211

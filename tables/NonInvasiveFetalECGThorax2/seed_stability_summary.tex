@@ -1,0 +1,31 @@
+\begin{longtable}{llllllllllll}
+\caption{Three-seed stability of validation-selected configurations for Fetal ECG Thorax 2.} \label{tab:noninvasivefetalecgthorax2_seed_stability} \\
+\toprule
+Architecture name & Seeds & Training regime & Parameters (M) & Validation macro-F1 mean & Validation macro-F1 SD & Test macro-F1 mean & Test macro-F1 SD & Test balanced accuracy mean & Test balanced accuracy SD & Test accuracy mean & Test accuracy SD \\
+\midrule
+\endfirsthead
+\caption[]{Three-seed stability of validation-selected configurations for Fetal ECG Thorax 2.} \\
+\toprule
+Architecture name & Seeds & Training regime & Parameters (M) & Validation macro-F1 mean & Validation macro-F1 SD & Test macro-F1 mean & Test macro-F1 SD & Test balanced accuracy mean & Test balanced accuracy SD & Test accuracy mean & Test accuracy SD \\
+\midrule
+\endhead
+\midrule
+\multicolumn{12}{r}{Continued on next page} \\
+\midrule
+\endfoot
+\bottomrule
+\endlastfoot
+Base U-Net & 0,7,42 & e50 & 0.371 & 0.857 & 0.022 & 0.834 & 0.028 & 0.836 & 0.028 & 0.838 & 0.027 \\
+U-Net + FNO & 0,7,42 & e50 & 1.626 & 0.959 & 0.003 & 0.942 & 0.004 & 0.943 & 0.005 & 0.944 & 0.005 \\
+Attention U-Net & 0,7,42 & e50 & 0.173 & 0.864 & 0.003 & 0.855 & 0.015 & 0.856 & 0.015 & 0.857 & 0.015 \\
+Attention U-Net + FNO & 0,7,42 & e50 & 2.227 & 0.959 & 0.002 & 0.943 & 0.002 & 0.943 & 0.002 & 0.945 & 0.002 \\
+ResNet1D & 0,7,42 & e50 & 1.002 & 0.900 & 0.009 & 0.902 & 0.003 & 0.902 & 0.002 & 0.904 & 0.002 \\
+ResNet9 & 0,7,42 & e50 & 0.169 & 0.869 & 0.013 & 0.865 & 0.008 & 0.867 & 0.007 & 0.868 & 0.007 \\
+CF-ResNet9 & 0,7,42 & e50 & 0.164 & 0.965 & 0.003 & 0.944 & 0.008 & 0.944 & 0.008 & 0.945 & 0.008 \\
+CF-ResNet9 (train z-score) & 0,7,42 & e50 & 0.164 & 0.965 & 0.004 & 0.943 & 0.009 & 0.943 & 0.009 & 0.944 & 0.009 \\
+FNO-ResNet9 & 0,7,42 & e50 & 0.492 & 0.965 & 0.001 & 0.946 & 0.002 & 0.946 & 0.002 & 0.947 & 0.002 \\
+Spectral CNN & 0,7,42 & e50 & 0.231 & 0.585 & 0.011 & 0.576 & 0.013 & 0.579 & 0.011 & 0.581 & 0.011 \\
+Spectral CNN + FNO & 0,7,42 & e50 & 14.499 & 0.868 & 0.012 & 0.875 & 0.011 & 0.875 & 0.011 & 0.876 & 0.011 \\
+Spectral ViT & 0,7,42 & e50 & 0.915 & 0.889 & 0.008 & 0.880 & 0.030 & 0.884 & 0.027 & 0.885 & 0.027 \\
+Spectral ViT + FNO & 0,7,42 & e50 & 10.130 & 0.918 & 0.011 & 0.923 & 0.008 & 0.925 & 0.007 & 0.926 & 0.007 \\
+\end{longtable}

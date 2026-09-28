@@ -1,0 +1,39 @@
+\begin{longtable}{lllllllllllllll}
+\caption{Focused parameter-matched comparisons for PTB-XL (Lead II, binary). Configurations were selected using validation macro-F1.} \label{tab:ptbxl_leadii_binary_paired_fno_comparison} \\
+\toprule
+Comparison & Tolerance (\%) & Matched & Baseline parameters (M) & Target parameters (M) & Parameter difference (\%) & Baseline validation macro-F1 & Target validation macro-F1 & Validation macro-F1 difference & Baseline test macro-F1 & Target test macro-F1 & Test macro-F1 difference & Baseline test balanced accuracy & Target test balanced accuracy & Test balanced-accuracy difference \\
+\midrule
+\endfirsthead
+\caption[]{Focused parameter-matched comparisons for PTB-XL (Lead II, binary). Configurations were selected using validation macro-F1.} \\
+\toprule
+Comparison & Tolerance (\%) & Matched & Baseline parameters (M) & Target parameters (M) & Parameter difference (\%) & Baseline validation macro-F1 & Target validation macro-F1 & Validation macro-F1 difference & Baseline test macro-F1 & Target test macro-F1 & Test macro-F1 difference & Baseline test balanced accuracy & Target test balanced accuracy & Test balanced-accuracy difference \\
+\midrule
+\endhead
+\midrule
+\multicolumn{15}{r}{Continued on next page} \\
+\midrule
+\endfoot
+\bottomrule
+\endlastfoot
+U-Net vs U-Net-FNO & 10.0 & No & 0.16 & - & - & 0.821 & - & - & 0.806 & - & - & 0.811 & - & - \\
+U-Net vs U-Net-FNO & 15.0 & Yes & 0.16 & 0.18 & 10.2 & 0.821 & 0.819 & -0.002 & 0.806 & 0.794 & -0.012 & 0.811 & 0.801 & -0.011 \\
+U-Net vs U-Net-FNO & 20.0 & Yes & 0.16 & 0.18 & 10.2 & 0.821 & 0.819 & -0.002 & 0.806 & 0.794 & -0.012 & 0.811 & 0.801 & -0.011 \\
+Attention U-Net vs Attention U-Net-FNO & 10.0 & Yes & 0.17 & 0.18 & 7.6 & 0.820 & 0.817 & -0.004 & 0.801 & 0.790 & -0.011 & 0.810 & 0.799 & -0.011 \\
+Attention U-Net vs Attention U-Net-FNO & 15.0 & Yes & 0.17 & 0.15 & -14.3 & 0.820 & 0.817 & -0.003 & 0.801 & 0.798 & -0.003 & 0.810 & 0.805 & -0.005 \\
+Attention U-Net vs Attention U-Net-FNO & 20.0 & Yes & 0.17 & 0.15 & -14.3 & 0.820 & 0.817 & -0.003 & 0.801 & 0.798 & -0.003 & 0.810 & 0.805 & -0.005 \\
+ResNet9 vs CF-ResNet9 & 10.0 & No & 0.07 & - & - & 0.818 & - & - & 0.802 & - & - & 0.808 & - & - \\
+ResNet9 vs CF-ResNet9 & 15.0 & No & 0.07 & - & - & 0.818 & - & - & 0.802 & - & - & 0.808 & - & - \\
+ResNet9 vs CF-ResNet9 & 20.0 & No & 0.07 & - & - & 0.818 & - & - & 0.802 & - & - & 0.808 & - & - \\
+CF-ResNet9 per-sample vs train-global z-score & 10.0 & Yes & 0.36 & 0.36 & 0.0 & 0.820 & 0.820 & 0.000 & 0.799 & 0.807 & 0.008 & 0.806 & 0.813 & 0.008 \\
+CF-ResNet9 per-sample vs train-global z-score & 15.0 & Yes & 0.36 & 0.36 & 0.0 & 0.820 & 0.820 & 0.000 & 0.799 & 0.807 & 0.008 & 0.806 & 0.813 & 0.008 \\
+CF-ResNet9 per-sample vs train-global z-score & 20.0 & Yes & 0.36 & 0.36 & 0.0 & 0.820 & 0.820 & 0.000 & 0.799 & 0.807 & 0.008 & 0.806 & 0.813 & 0.008 \\
+ResNet9 vs FNO-ResNet9 & 10.0 & Yes & 0.07 & 0.08 & 1.7 & 0.818 & 0.812 & -0.006 & 0.802 & 0.792 & -0.009 & 0.808 & 0.800 & -0.009 \\
+ResNet9 vs FNO-ResNet9 & 15.0 & Yes & 0.07 & 0.08 & 1.7 & 0.818 & 0.812 & -0.006 & 0.802 & 0.792 & -0.009 & 0.808 & 0.800 & -0.009 \\
+ResNet9 vs FNO-ResNet9 & 20.0 & Yes & 0.07 & 0.08 & 1.7 & 0.818 & 0.812 & -0.006 & 0.802 & 0.792 & -0.009 & 0.808 & 0.800 & -0.009 \\
+Spectrogram CNN vs Spectrogram CNN-FNO & 10.0 & No & 0.10 & - & - & 0.825 & - & - & 0.784 & - & - & 0.792 & - & - \\
+Spectrogram CNN vs Spectrogram CNN-FNO & 15.0 & No & 0.10 & - & - & 0.825 & - & - & 0.784 & - & - & 0.792 & - & - \\
+Spectrogram CNN vs Spectrogram CNN-FNO & 20.0 & No & 0.10 & - & - & 0.825 & - & - & 0.784 & - & - & 0.792 & - & - \\
+Spectrogram ViT vs Spectrogram ViT-FNO & 10.0 & No & 0.41 & - & - & 0.805 & - & - & 0.773 & - & - & 0.781 & - & - \\
+Spectrogram ViT vs Spectrogram ViT-FNO & 15.0 & No & 0.41 & - & - & 0.805 & - & - & 0.773 & - & - & 0.781 & - & - \\
+Spectrogram ViT vs Spectrogram ViT-FNO & 20.0 & Yes & 0.41 & 0.34 & -17.4 & 0.805 & 0.799 & -0.006 & 0.773 & 0.770 & -0.004 & 0.781 & 0.773 & -0.008 \\
+\end{longtable}

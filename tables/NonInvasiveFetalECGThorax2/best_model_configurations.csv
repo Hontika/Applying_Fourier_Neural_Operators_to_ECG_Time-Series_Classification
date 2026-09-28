@@ -1,0 +1,14 @@
+Dataset,Architecture name,Family key,Base width,Learning rate,Weight decay,Dropout,Normalization,LR scheduler,Warmup epochs,Training regime,Model seed,Split seed,Architecture-specific configuration,Run ID,Config key
+NonInvasiveFetalECGThorax2,Base U-Net,base_unet,48,0.0005,0.0001,0.0,per_sample_zscore,cosine_warmup,5,e50,0,42,-,run_300,539169d95cec643aebca7801079a2e74
+NonInvasiveFetalECGThorax2,U-Net + FNO,unet_fno,48,0.0005,0.0,0.2,per_sample_zscore,cosine_warmup,5,e50,42,42,modes=24; fno_layers=2,run_1782,c5a5663135c484873d1c593b4d3c348c
+NonInvasiveFetalECGThorax2,Attention U-Net,att_unet,48,0.0005,0.0001,0.0,per_sample_zscore,cosine,0,e50,7,42,-,run_302,e619ded72efc1130d9ed61877660ade8
+NonInvasiveFetalECGThorax2,Attention U-Net + FNO,att_unet_fno,32,0.001,0.0001,0.0,per_sample_zscore,cosine_warmup,5,e50,0,42,modes=16; fno_layers=1,run_831,3c66e088dfefc907a77538278925d0c7
+NonInvasiveFetalECGThorax2,ResNet1D,resnet1d,32,0.001,0.0,0.0,per_sample_zscore,cosine_warmup,5,e50,7,42,-,run_114,0f2128afb06e15030532ec75cf938cdc
+NonInvasiveFetalECGThorax2,ResNet9,resnet9,48,0.001,0.0,0.2,per_sample_zscore,cosine_warmup,5,e50,42,42,-,run_243,372e7d36bafb2c115a06b84c216a2816
+NonInvasiveFetalECGThorax2,CF-ResNet9,cf_resnet9,32,0.0005,0.0001,0.1,per_sample_zscore,cosine,0,e50,0,42,modes=16,run_605,6602ebda6135eb87481d62ab1f533a75
+NonInvasiveFetalECGThorax2,CF-ResNet9 (train z-score),cf_resnet9_train_zscore,32,0.001,0.0,0.2,train_global_zscore,cosine_warmup,5,e50,42,42,modes=16,run_396,7642165ef4662f85bafcec6cc6c6ff06
+NonInvasiveFetalECGThorax2,FNO-ResNet9,fno_resnet9,48,0.001,0.0,0.0,per_sample_zscore,cosine_warmup,5,e50,0,42,modes=16; fno_layers=2,run_1326,74f8dc5be0393c83ed7ae2647bd0097f
+NonInvasiveFetalECGThorax2,Spectral CNN,spec_cnn,48,0.001,0.0,0.2,per_sample_zscore,cosine,0,e50,0,42,n_fft=64; hop_length=16,run_1451,08e67973ab4250992c6f514a12f1cb73
+NonInvasiveFetalECGThorax2,Spectral CNN + FNO,spec_cnn_fno,32,0.0005,0.0,0.2,per_sample_zscore,cosine_warmup,5,e50,0,42,n_fft=32; hop_length=4; modes_h=8; modes_w=8; fno_layers_2d=3,run_2910,925757698422d4d9ff69c270a19fc68b
+NonInvasiveFetalECGThorax2,Spectral ViT,spec_vit,32,0.0005,0.0001,0.1,per_sample_zscore,none,0,e50,0,42,"n_fft=64; hop_length=16; patch_size=[4, 2]; vit_depth=3; num_heads=4; mlp_ratio=2",run_406,2ed8686f2a6a2218eef94a4ab27485ad
+NonInvasiveFetalECGThorax2,Spectral ViT + FNO,spec_vit_fno,48,0.0005,0.0001,0.1,per_sample_zscore,cosine_warmup,5,e50,7,42,"n_fft=32; hop_length=8; patch_size=[4, 2]; vit_depth=2; num_heads=4; mlp_ratio=2; modes_h=16; modes_w=8; fno_layers_2d=2",run_2374,a0a29ada85a629755387b7ff40c3354c

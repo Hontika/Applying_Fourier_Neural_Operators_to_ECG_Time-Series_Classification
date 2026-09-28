@@ -1,6 +1,0 @@
-dataset,split_source,split,class_id,class_label,count,pct
-ECG5000,experimental_60_20_20,train,0,1,1751,58.36666666666667
-ECG5000,experimental_60_20_20,train,1,2,1061,35.36666666666667
-ECG5000,experimental_60_20_20,train,2,3,58,1.9333333333333333
-ECG5000,experimental_60_20_20,train,3,4,116,3.8666666666666667
-ECG5000,experimental_60_20_20,train,4,5,14,0.46666666666666673

@@ -1,0 +1,23 @@
+\begin{table}
+\caption{Configurations of validation-selected family winners for PTB-XL Lead II (binary).}
+\label{tab:ptbxl_leadii_binary_best_model_configurations}
+\begin{tabular}{llllllllllllllll}
+\toprule
+Dataset & Architecture name & Family key & Base width & Learning rate & Weight decay & Dropout & Normalization & LR scheduler & Warmup epochs & Training regime & Model seed & Split seed & Architecture-specific configuration & Run ID & Config key \\
+\midrule
+PTBXL\_LEADII\_BINARY & Base U-Net & base\_unet & 32 & 0.001 & 0.0001 & 0.20 & per\_sample\_zscore & cosine\_warmup & 5 & e50 & 42 & predefined & - & run\_162 & 27cb314dcbd595cf9998b0b467ac5852 \\
+PTBXL\_LEADII\_BINARY & U-Net + FNO & unet\_fno & 16 & 0.0005 & 0.0001 & 0.20 & per\_sample\_zscore & cosine\_warmup & 5 & e50 & 42 & predefined & modes=8; fno\_layers=2 & run\_612 & 11841490316752c4177a7d589c5997c4 \\
+PTBXL\_LEADII\_BINARY & Attention U-Net & att\_unet & 32 & 0.001 & 0.0001 & 0.10 & per\_sample\_zscore & cosine\_warmup & 5 & e50 & 0 & predefined & - & run\_147 & fc349b1603ebd800f229ce52c6343e8c \\
+PTBXL\_LEADII\_BINARY & Attention U-Net + FNO & att\_unet\_fno & 48 & 0.001 & 0.0001 & 0.20 & per\_sample\_zscore & cosine\_warmup & 5 & e50 & 7 & predefined & modes=8; fno\_layers=1 & run\_1572 & 13841d97dd4c70ed379e811fbf29243c \\
+PTBXL\_LEADII\_BINARY & ResNet1D & resnet1d & 32 & 0.001 & 0.0001 & 0.10 & per\_sample\_zscore & none & 0 & e50 & 0 & predefined & - & run\_145 & a8caee1b7617198f22d3250e3b10113c \\
+PTBXL\_LEADII\_BINARY & ResNet9 & resnet9 & 32 & 0.001 & 0.0001 & 0.10 & per\_sample\_zscore & none & 0 & e50 & 0 & predefined & - & run\_145 & 0f1e114f97c2c702893fe81387ca1b51 \\
+PTBXL\_LEADII\_BINARY & CF-ResNet9 & cf\_resnet9 & 48 & 0.001 & 0 & 0.20 & per\_sample\_zscore & cosine\_warmup & 5 & e50 & 7 & predefined & modes=16 & run\_717 & 31c4f14df9f2807fe526f3c66bce5085 \\
+PTBXL\_LEADII\_BINARY & CF-ResNet9 (train z-score) & cf\_resnet9\_train\_zscore & 48 & 0.001 & 0.0001 & 0.10 & train\_global\_zscore & cosine\_warmup & 5 & e50 & 0 & predefined & modes=24 & run\_777 & fb5449c823b0c51fa97bd4001e535c4e \\
+PTBXL\_LEADII\_BINARY & FNO-ResNet9 & fno\_resnet9 & 16 & 0.001 & 0 & 0.20 & per\_sample\_zscore & none & 0 & e50 & 7 & predefined & modes=24; fno\_layers=1 & run\_148 & 7d465d69f43e40359d892d0c0ae35edb \\
+PTBXL\_LEADII\_BINARY & Spectral CNN & spec\_cnn & 32 & 0.0005 & 0 & 0.20 & per\_sample\_zscore & none & 0 & e50 & 0 & predefined & n\_fft=64; hop\_length=8 & run\_1117 & 6976ebfc91152cf7239240f668ace506 \\
+PTBXL\_LEADII\_BINARY & Spectral CNN + FNO & spec\_cnn\_fno & 16 & 0.0005 & 0.0001 & 0.20 & per\_sample\_zscore & none & 0 & e50 & 0 & predefined & n\_fft=32; hop\_length=4; modes\_h=8; modes\_w=4; fno\_layers\_2d=2 & run\_1585 & e9978ce01c82ee7ec4a02592e0ffa896 \\
+PTBXL\_LEADII\_BINARY & Spectral ViT & spec\_vit & 32 & 0.0005 & 0.0001 & 0.20 & per\_sample\_zscore & none & 0 & e50 & 0 & predefined & n\_fft=64; hop\_length=8; patch\_size=[2, 2]; vit\_depth=3; num\_heads=4; mlp\_ratio=2 & run\_532 & 51d42d152df9ca56f80076bd36cb5bee \\
+PTBXL\_LEADII\_BINARY & Spectral ViT + FNO & spec\_vit\_fno & 16 & 0.0005 & 0.0001 & 0.10 & per\_sample\_zscore & none & 0 & e50 & 7 & predefined & n\_fft=64; hop\_length=8; patch\_size=[2, 2]; vit\_depth=2; num\_heads=4; mlp\_ratio=2; modes\_h=8; modes\_w=4; fno\_layers\_2d=1 & run\_364 & 864357ab8ceafb4c468a651d05a8ab6b \\
+\bottomrule
+\end{tabular}
+\end{table}

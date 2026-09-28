@@ -1,0 +1,70 @@
+\begin{longtable}{lllllllllllll}
+\caption{Validation-selected family winners for all four datasets.} \label{tab:all_datasets_best_model_performance} \\
+\toprule
+Dataset & Architecture name & Family key & Selection metric & Validation macro-F1 & Test macro-F1 & Test balanced accuracy & Test accuracy & Parameters (M) & Training regime & Model seed & Run ID & Config key \\
+\midrule
+\endfirsthead
+\caption[]{Validation-selected family winners for all four datasets.} \\
+\toprule
+Dataset & Architecture name & Family key & Selection metric & Validation macro-F1 & Test macro-F1 & Test balanced accuracy & Test accuracy & Parameters (M) & Training regime & Model seed & Run ID & Config key \\
+\midrule
+\endhead
+\midrule
+\multicolumn{13}{r}{Continued on next page} \\
+\midrule
+\endfoot
+\bottomrule
+\endlastfoot
+ECG5000 & Base U-Net & base\_unet & val\_macro\_f1 & 0.664 & 0.696 & 0.667 & 0.943 & 0.369 & e50 & 42 & run\_093 & e795e560f074ff00b8fd1ec3d53a7333 \\
+ECG5000 & U-Net + FNO & unet\_fno & val\_macro\_f1 & 0.740 & 0.667 & 0.622 & 0.953 & 0.984 & e50 & 0 & run\_286 & 8c58c3845cd2b8bb4843440355cc50cd \\
+ECG5000 & Attention U-Net & att\_unet & val\_macro\_f1 & 0.650 & 0.592 & 0.596 & 0.944 & 0.381 & e50 & 7 & run\_268 & 6a1fbdc46635164692819024318e3d6a \\
+ECG5000 & Attention U-Net + FNO & att\_unet\_fno & val\_macro\_f1 & 0.705 & 0.569 & 0.563 & 0.940 & 0.449 & e50 & 42 & run\_1206 & 2a7436a9be54e00394967956a3b03c76 \\
+ECG5000 & ResNet1D & resnet1d & val\_macro\_f1 & 0.738 & 0.579 & 0.565 & 0.941 & 0.251 & e50 & 7 & run\_005 & fd786b2569727ece094206b651acd869 \\
+ECG5000 & ResNet9 & resnet9 & val\_macro\_f1 & 0.718 & 0.580 & 0.587 & 0.929 & 0.166 & e50 & 7 & run\_316 & 427a06b4c95ede8738bd66a981c92884 \\
+ECG5000 & CF-ResNet9 & cf\_resnet9 & val\_macro\_f1 & 0.752 & 0.593 & 0.577 & 0.946 & 0.051 & e50 & 0 & run\_088 & 8ae239da1f97c60a39a5bd2f9f3b66ca \\
+ECG5000 & CF-ResNet9 (train z-score) & cf\_resnet9\_train\_zscore & val\_macro\_f1 & 0.750 & 0.605 & 0.585 & 0.950 & 0.270 & e50 & 7 & run\_950 & def7e83405255b80ebadba73b7274f13 \\
+ECG5000 & FNO-ResNet9 & fno\_resnet9 & val\_macro\_f1 & 0.772 & 0.716 & 0.668 & 0.954 & 0.171 & e50 & 0 & run\_409 & f15e2dc12c9e6a50c55114731a370525 \\
+ECG5000 & Spectral CNN & spec\_cnn & val\_macro\_f1 & 0.725 & 0.622 & 0.582 & 0.943 & 0.228 & e50 & 7 & run\_518 & daa4ba8a434a54d1d561fd68f1ac899f \\
+ECG5000 & Spectral CNN + FNO & spec\_cnn\_fno & val\_macro\_f1 & 0.792 & 0.574 & 0.544 & 0.948 & 0.559 & e50 & 0 & run\_229 & 2e6b1cb4ac933df4714c0cedb7e89013 \\
+ECG5000 & Spectral ViT & spec\_vit & val\_macro\_f1 & 0.742 & 0.633 & 0.604 & 0.949 & 0.912 & e50 & 0 & run\_196 & 4ae84b5dc0657af6c08a560ce7c66786 \\
+ECG5000 & Spectral ViT + FNO & spec\_vit\_fno & val\_macro\_f1 & 0.753 & 0.584 & 0.554 & 0.945 & 4.503 & e50 & 0 & run\_406 & 7e14faa8e0dd4e27af310a7d2b16f127 \\
+NonInvasiveFetalECGThorax1 & Base U-Net & base\_unet & val\_macro\_f1 & 0.866 & 0.825 & 0.827 & 0.827 & 0.371 & e50 & 7 & run\_276 & 4e03d95303e5fcafc489974f9e11f20c \\
+NonInvasiveFetalECGThorax1 & U-Net + FNO & unet\_fno & val\_macro\_f1 & 0.964 & 0.943 & 0.944 & 0.944 & 0.725 & e50 & 7 & run\_1004 & fac93ae0e4aebdd01740329022813c80 \\
+NonInvasiveFetalECGThorax1 & Attention U-Net & att\_unet & val\_macro\_f1 & 0.846 & 0.824 & 0.825 & 0.825 & 0.383 & e50 & 7 & run\_302 & e619ded72efc1130d9ed61877660ade8 \\
+NonInvasiveFetalECGThorax1 & Attention U-Net + FNO & att\_unet\_fno & val\_macro\_f1 & 0.958 & 0.933 & 0.933 & 0.934 & 1.638 & e50 & 7 & run\_1815 & 0f1a734557a3206b352988c9475cf734 \\
+NonInvasiveFetalECGThorax1 & ResNet1D & resnet1d & val\_macro\_f1 & 0.929 & 0.894 & 0.894 & 0.895 & 2.246 & e50 & 42 & run\_287 & 50a4ce7c8e95905356af9c3e84ba89d7 \\
+NonInvasiveFetalECGThorax1 & ResNet9 & resnet9 & val\_macro\_f1 & 0.865 & 0.833 & 0.833 & 0.833 & 0.169 & e50 & 7 & run\_311 & 87434689c50bea7298037741e611f1cf \\
+NonInvasiveFetalECGThorax1 & CF-ResNet9 & cf\_resnet9 & val\_macro\_f1 & 0.964 & 0.943 & 0.944 & 0.944 & 0.458 & e50 & 42 & run\_836 & 6889afe155de6eb2944c0a2d0ed37f8a \\
+NonInvasiveFetalECGThorax1 & CF-ResNet9 (train z-score) & cf\_resnet9\_train\_zscore & val\_macro\_f1 & 0.964 & 0.949 & 0.949 & 0.950 & 0.205 & e50 & 42 & run\_539 & dd75d0d0c100dbcc384db71e8960b96c \\
+NonInvasiveFetalECGThorax1 & FNO-ResNet9 & fno\_resnet9 & val\_macro\_f1 & 0.960 & 0.949 & 0.949 & 0.950 & 0.174 & e50 & 0 & run\_795 & dd3e3437cf6fbad2710bca738f8fbc71 \\
+NonInvasiveFetalECGThorax1 & Spectral CNN & spec\_cnn & val\_macro\_f1 & 0.623 & 0.644 & 0.649 & 0.653 & 0.104 & e50 & 7 & run\_807 & 1671294bb0ea0ce50740310486faf6ef \\
+NonInvasiveFetalECGThorax1 & Spectral CNN + FNO & spec\_cnn\_fno & val\_macro\_f1 & 0.866 & 0.861 & 0.860 & 0.862 & 14.499 & e50 & 42 & run\_5183 & 87ef394cd359efbebb45c2c030d9be89 \\
+NonInvasiveFetalECGThorax1 & Spectral ViT & spec\_vit & val\_macro\_f1 & 0.892 & 0.876 & 0.876 & 0.878 & 0.915 & e50 & 0 & run\_694 & d13a48cf24956343052f349aafcd1b02 \\
+NonInvasiveFetalECGThorax1 & Spectral ViT + FNO & spec\_vit\_fno & val\_macro\_f1 & 0.922 & 0.906 & 0.907 & 0.908 & 5.411 & e50 & 7 & run\_2859 & 8fdfc29343319ab28138fb818f5091c3 \\
+NonInvasiveFetalECGThorax2 & Base U-Net & base\_unet & val\_macro\_f1 & 0.883 & 0.861 & 0.862 & 0.863 & 0.371 & e50 & 0 & run\_300 & 539169d95cec643aebca7801079a2e74 \\
+NonInvasiveFetalECGThorax2 & U-Net + FNO & unet\_fno & val\_macro\_f1 & 0.963 & 0.943 & 0.943 & 0.944 & 2.215 & e50 & 42 & run\_1782 & c5a5663135c484873d1c593b4d3c348c \\
+NonInvasiveFetalECGThorax2 & Attention U-Net & att\_unet & val\_macro\_f1 & 0.870 & 0.862 & 0.864 & 0.865 & 0.383 & e50 & 7 & run\_302 & e619ded72efc1130d9ed61877660ade8 \\
+NonInvasiveFetalECGThorax2 & Attention U-Net + FNO & att\_unet\_fno & val\_macro\_f1 & 0.963 & 0.942 & 0.942 & 0.943 & 0.451 & e50 & 0 & run\_831 & 3c66e088dfefc907a77538278925d0c7 \\
+NonInvasiveFetalECGThorax2 & ResNet1D & resnet1d & val\_macro\_f1 & 0.909 & 0.904 & 0.904 & 0.906 & 1.002 & e50 & 7 & run\_114 & 0f2128afb06e15030532ec75cf938cdc \\
+NonInvasiveFetalECGThorax2 & ResNet9 & resnet9 & val\_macro\_f1 & 0.884 & 0.868 & 0.870 & 0.871 & 0.169 & e50 & 42 & run\_243 & 372e7d36bafb2c115a06b84c216a2816 \\
+NonInvasiveFetalECGThorax2 & CF-ResNet9 & cf\_resnet9 & val\_macro\_f1 & 0.969 & 0.946 & 0.947 & 0.947 & 0.164 & e50 & 0 & run\_605 & 6602ebda6135eb87481d62ab1f533a75 \\
+NonInvasiveFetalECGThorax2 & CF-ResNet9 (train z-score) & cf\_resnet9\_train\_zscore & val\_macro\_f1 & 0.969 & 0.936 & 0.937 & 0.938 & 0.164 & e50 & 42 & run\_396 & 7642165ef4662f85bafcec6cc6c6ff06 \\
+NonInvasiveFetalECGThorax2 & FNO-ResNet9 & fno\_resnet9 & val\_macro\_f1 & 0.969 & 0.948 & 0.949 & 0.950 & 0.492 & e50 & 0 & run\_1326 & 74f8dc5be0393c83ed7ae2647bd0097f \\
+NonInvasiveFetalECGThorax2 & Spectral CNN & spec\_cnn & val\_macro\_f1 & 0.605 & 0.566 & 0.570 & 0.572 & 0.231 & e50 & 0 & run\_1451 & 08e67973ab4250992c6f514a12f1cb73 \\
+NonInvasiveFetalECGThorax2 & Spectral CNN + FNO & spec\_cnn\_fno & val\_macro\_f1 & 0.883 & 0.866 & 0.867 & 0.869 & 3.300 & e50 & 0 & run\_2910 & 925757698422d4d9ff69c270a19fc68b \\
+NonInvasiveFetalECGThorax2 & Spectral ViT & spec\_vit & val\_macro\_f1 & 0.900 & 0.890 & 0.888 & 0.890 & 0.410 & e50 & 0 & run\_406 & 2ed8686f2a6a2218eef94a4ab27485ad \\
+NonInvasiveFetalECGThorax2 & Spectral ViT + FNO & spec\_vit\_fno & val\_macro\_f1 & 0.927 & 0.922 & 0.924 & 0.924 & 10.130 & e50 & 7 & run\_2374 & a0a29ada85a629755387b7ff40c3354c \\
+PTBXL\_LEADII\_BINARY & Base U-Net & base\_unet & val\_macro\_f1 & 0.821 & 0.806 & 0.811 & 0.808 & 0.164 & e50 & 42 & run\_162 & 27cb314dcbd595cf9998b0b467ac5852 \\
+PTBXL\_LEADII\_BINARY & U-Net + FNO & unet\_fno & val\_macro\_f1 & 0.819 & 0.806 & 0.812 & 0.808 & 0.116 & e50 & 42 & run\_612 & 11841490316752c4177a7d589c5997c4 \\
+PTBXL\_LEADII\_BINARY & Attention U-Net & att\_unet & val\_macro\_f1 & 0.820 & 0.801 & 0.810 & 0.802 & 0.170 & e50 & 0 & run\_147 & fc349b1603ebd800f229ce52c6343e8c \\
+PTBXL\_LEADII\_BINARY & Attention U-Net + FNO & att\_unet\_fno & val\_macro\_f1 & 0.821 & 0.807 & 0.815 & 0.809 & 0.713 & e50 & 7 & run\_1572 & 13841d97dd4c70ed379e811fbf29243c \\
+PTBXL\_LEADII\_BINARY & ResNet1D & resnet1d & val\_macro\_f1 & 0.822 & 0.804 & 0.809 & 0.806 & 0.997 & e50 & 0 & run\_145 & a8caee1b7617198f22d3250e3b10113c \\
+PTBXL\_LEADII\_BINARY & ResNet9 & resnet9 & val\_macro\_f1 & 0.818 & 0.802 & 0.808 & 0.804 & 0.074 & e50 & 0 & run\_145 & 0f1e114f97c2c702893fe81387ca1b51 \\
+PTBXL\_LEADII\_BINARY & CF-ResNet9 & cf\_resnet9 & val\_macro\_f1 & 0.820 & 0.799 & 0.806 & 0.800 & 0.362 & e50 & 7 & run\_717 & 31c4f14df9f2807fe526f3c66bce5085 \\
+PTBXL\_LEADII\_BINARY & CF-ResNet9 (train z-score) & cf\_resnet9\_train\_zscore & val\_macro\_f1 & 0.823 & 0.791 & 0.798 & 0.792 & 0.454 & e50 & 0 & run\_777 & fb5449c823b0c51fa97bd4001e535c4e \\
+PTBXL\_LEADII\_BINARY & FNO-ResNet9 & fno\_resnet9 & val\_macro\_f1 & 0.820 & 0.795 & 0.797 & 0.799 & 0.043 & e50 & 7 & run\_148 & 7d465d69f43e40359d892d0c0ae35edb \\
+PTBXL\_LEADII\_BINARY & Spectral CNN & spec\_cnn & val\_macro\_f1 & 0.825 & 0.784 & 0.792 & 0.785 & 0.102 & e50 & 0 & run\_1117 & 6976ebfc91152cf7239240f668ace506 \\
+PTBXL\_LEADII\_BINARY & Spectral CNN + FNO & spec\_cnn\_fno & val\_macro\_f1 & 0.813 & 0.791 & 0.797 & 0.792 & 0.296 & e50 & 0 & run\_1585 & e9978ce01c82ee7ec4a02592e0ffa896 \\
+PTBXL\_LEADII\_BINARY & Spectral ViT & spec\_vit & val\_macro\_f1 & 0.805 & 0.773 & 0.781 & 0.775 & 0.406 & e50 & 0 & run\_532 & 51d42d152df9ca56f80076bd36cb5bee \\
+PTBXL\_LEADII\_BINARY & Spectral ViT + FNO & spec\_vit\_fno & val\_macro\_f1 & 0.804 & 0.776 & 0.782 & 0.778 & 0.205 & e50 & 7 & run\_364 & 864357ab8ceafb4c468a651d05a8ab6b \\
+\end{longtable}

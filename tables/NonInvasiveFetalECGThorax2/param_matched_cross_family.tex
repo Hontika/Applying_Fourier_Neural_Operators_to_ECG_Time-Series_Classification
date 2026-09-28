@@ -1,0 +1,187 @@
+\begin{longtable}{llllllllllllllll}
+\caption{Parameter-matched cross-family comparisons for Fetal ECG Thorax 2. Configurations were selected using validation macro-F1.} \label{tab:noninvasivefetalecgthorax2_param_matched_cross_family} \\
+\toprule
+Reference architecture & Target architecture & Tolerance (\%) & Matched & Reference parameters (M) & Target parameters (M) & Parameter difference (\%) & Reference validation macro-F1 & Target validation macro-F1 & Validation macro-F1 difference & Reference test macro-F1 & Target test macro-F1 & Test macro-F1 difference & Reference test balanced accuracy & Target test balanced accuracy & Test balanced-accuracy difference \\
+\midrule
+\endfirsthead
+\caption[]{Parameter-matched cross-family comparisons for Fetal ECG Thorax 2. Configurations were selected using validation macro-F1.} \\
+\toprule
+Reference architecture & Target architecture & Tolerance (\%) & Matched & Reference parameters (M) & Target parameters (M) & Parameter difference (\%) & Reference validation macro-F1 & Target validation macro-F1 & Validation macro-F1 difference & Reference test macro-F1 & Target test macro-F1 & Test macro-F1 difference & Reference test balanced accuracy & Target test balanced accuracy & Test balanced-accuracy difference \\
+\midrule
+\endhead
+\midrule
+\multicolumn{16}{r}{Continued on next page} \\
+\midrule
+\endfoot
+\bottomrule
+\endlastfoot
+Base U-Net & Base U-Net & 10.0 & Yes & 0.37 & 0.37 & 0.0 & 0.883 & 0.883 & 0.000 & 0.861 & 0.861 & 0.000 & 0.862 & 0.862 & 0.000 \\
+Base U-Net & U-Net + FNO & 10.0 & No & 0.37 & - & - & 0.883 & - & - & 0.861 & - & - & 0.862 & - & - \\
+Base U-Net & Attention U-Net & 10.0 & Yes & 0.37 & 0.38 & 3.2 & 0.883 & 0.870 & -0.013 & 0.861 & 0.862 & 0.001 & 0.862 & 0.864 & 0.002 \\
+Base U-Net & Attention U-Net + FNO & 10.0 & No & 0.37 & - & - & 0.883 & - & - & 0.861 & - & - & 0.862 & - & - \\
+Base U-Net & ResNet1D & 10.0 & No & 0.37 & - & - & 0.883 & - & - & 0.861 & - & - & 0.862 & - & - \\
+Base U-Net & ResNet9 & 10.0 & No & 0.37 & - & - & 0.883 & - & - & 0.861 & - & - & 0.862 & - & - \\
+Base U-Net & CF-ResNet9 & 10.0 & Yes & 0.37 & 0.37 & -1.5 & 0.883 & 0.969 & 0.086 & 0.861 & 0.946 & 0.086 & 0.862 & 0.946 & 0.084 \\
+Base U-Net & CF-ResNet9 (train z-score) & 10.0 & Yes & 0.37 & 0.37 & -1.5 & 0.883 & 0.966 & 0.083 & 0.861 & 0.946 & 0.086 & 0.862 & 0.946 & 0.084 \\
+Base U-Net & FNO-ResNet9 & 10.0 & Yes & 0.37 & 0.39 & 4.6 & 0.883 & 0.962 & 0.079 & 0.861 & 0.948 & 0.087 & 0.862 & 0.948 & 0.086 \\
+Base U-Net & Spectral CNN & 10.0 & No & 0.37 & - & - & 0.883 & - & - & 0.861 & - & - & 0.862 & - & - \\
+Base U-Net & Spectral CNN + FNO & 10.0 & No & 0.37 & - & - & 0.883 & - & - & 0.861 & - & - & 0.862 & - & - \\
+Base U-Net & Spectral ViT & 10.0 & No & 0.37 & - & - & 0.883 & - & - & 0.861 & - & - & 0.862 & - & - \\
+Base U-Net & Spectral ViT + FNO & 10.0 & Yes & 0.37 & 0.34 & -7.6 & 0.883 & 0.858 & -0.025 & 0.861 & 0.871 & 0.011 & 0.862 & 0.876 & 0.014 \\
+U-Net + FNO & Base U-Net & 10.0 & No & 2.22 & - & - & 0.963 & - & - & 0.943 & - & - & 0.943 & - & - \\
+U-Net + FNO & U-Net + FNO & 10.0 & Yes & 2.22 & 2.22 & 0.0 & 0.963 & 0.963 & 0.000 & 0.943 & 0.943 & 0.000 & 0.943 & 0.943 & 0.000 \\
+U-Net + FNO & Attention U-Net & 10.0 & No & 2.22 & - & - & 0.963 & - & - & 0.943 & - & - & 0.943 & - & - \\
+U-Net + FNO & Attention U-Net + FNO & 10.0 & Yes & 2.22 & 2.23 & 0.5 & 0.963 & 0.962 & -0.001 & 0.943 & 0.943 & 0.000 & 0.943 & 0.943 & 0.000 \\
+U-Net + FNO & ResNet1D & 10.0 & Yes & 2.22 & 2.25 & 1.4 & 0.963 & 0.908 & -0.055 & 0.943 & 0.882 & -0.061 & 0.943 & 0.885 & -0.059 \\
+U-Net + FNO & ResNet9 & 10.0 & No & 2.22 & - & - & 0.963 & - & - & 0.943 & - & - & 0.943 & - & - \\
+U-Net + FNO & CF-ResNet9 & 10.0 & No & 2.22 & - & - & 0.963 & - & - & 0.943 & - & - & 0.943 & - & - \\
+U-Net + FNO & CF-ResNet9 (train z-score) & 10.0 & No & 2.22 & - & - & 0.963 & - & - & 0.943 & - & - & 0.943 & - & - \\
+U-Net + FNO & FNO-ResNet9 & 10.0 & No & 2.22 & - & - & 0.963 & - & - & 0.943 & - & - & 0.943 & - & - \\
+U-Net + FNO & Spectral CNN & 10.0 & No & 2.22 & - & - & 0.963 & - & - & 0.943 & - & - & 0.943 & - & - \\
+U-Net + FNO & Spectral CNN + FNO & 10.0 & Yes & 2.22 & 2.23 & 0.9 & 0.963 & 0.863 & -0.100 & 0.943 & 0.877 & -0.066 & 0.943 & 0.876 & -0.067 \\
+U-Net + FNO & Spectral ViT & 10.0 & No & 2.22 & - & - & 0.963 & - & - & 0.943 & - & - & 0.943 & - & - \\
+U-Net + FNO & Spectral ViT + FNO & 10.0 & Yes & 2.22 & 2.41 & 8.7 & 0.963 & 0.914 & -0.049 & 0.943 & 0.911 & -0.032 & 0.943 & 0.913 & -0.030 \\
+Attention U-Net & Base U-Net & 10.0 & Yes & 0.38 & 0.37 & -3.1 & 0.870 & 0.883 & 0.013 & 0.862 & 0.861 & -0.001 & 0.864 & 0.862 & -0.002 \\
+Attention U-Net & U-Net + FNO & 10.0 & No & 0.38 & - & - & 0.870 & - & - & 0.862 & - & - & 0.864 & - & - \\
+Attention U-Net & Attention U-Net & 10.0 & Yes & 0.38 & 0.38 & 0.0 & 0.870 & 0.870 & 0.000 & 0.862 & 0.862 & 0.000 & 0.864 & 0.864 & 0.000 \\
+Attention U-Net & Attention U-Net + FNO & 10.0 & No & 0.38 & - & - & 0.870 & - & - & 0.862 & - & - & 0.864 & - & - \\
+Attention U-Net & ResNet1D & 10.0 & No & 0.38 & - & - & 0.870 & - & - & 0.862 & - & - & 0.864 & - & - \\
+Attention U-Net & ResNet9 & 10.0 & No & 0.38 & - & - & 0.870 & - & - & 0.862 & - & - & 0.864 & - & - \\
+Attention U-Net & CF-ResNet9 & 10.0 & Yes & 0.38 & 0.37 & -4.6 & 0.870 & 0.969 & 0.099 & 0.862 & 0.946 & 0.084 & 0.864 & 0.946 & 0.082 \\
+Attention U-Net & CF-ResNet9 (train z-score) & 10.0 & Yes & 0.38 & 0.37 & -4.6 & 0.870 & 0.966 & 0.096 & 0.862 & 0.946 & 0.084 & 0.864 & 0.946 & 0.083 \\
+Attention U-Net & FNO-ResNet9 & 10.0 & Yes & 0.38 & 0.39 & 1.3 & 0.870 & 0.962 & 0.091 & 0.862 & 0.948 & 0.086 & 0.864 & 0.948 & 0.084 \\
+Attention U-Net & Spectral CNN & 10.0 & No & 0.38 & - & - & 0.870 & - & - & 0.862 & - & - & 0.864 & - & - \\
+Attention U-Net & Spectral CNN + FNO & 10.0 & No & 0.38 & - & - & 0.870 & - & - & 0.862 & - & - & 0.864 & - & - \\
+Attention U-Net & Spectral ViT & 10.0 & Yes & 0.38 & 0.41 & 6.9 & 0.870 & 0.900 & 0.030 & 0.862 & 0.890 & 0.028 & 0.864 & 0.888 & 0.025 \\
+Attention U-Net & Spectral ViT + FNO & 10.0 & No & 0.38 & - & - & 0.870 & - & - & 0.862 & - & - & 0.864 & - & - \\
+Attention U-Net + FNO & Base U-Net & 10.0 & No & 0.45 & - & - & 0.963 & - & - & 0.942 & - & - & 0.942 & - & - \\
+Attention U-Net + FNO & U-Net + FNO & 10.0 & Yes & 0.45 & 0.45 & -1.2 & 0.963 & 0.962 & -0.001 & 0.942 & 0.936 & -0.005 & 0.942 & 0.937 & -0.006 \\
+Attention U-Net + FNO & Attention U-Net & 10.0 & No & 0.45 & - & - & 0.963 & - & - & 0.942 & - & - & 0.942 & - & - \\
+Attention U-Net + FNO & Attention U-Net + FNO & 10.0 & Yes & 0.45 & 0.45 & 0.0 & 0.963 & 0.963 & 0.000 & 0.942 & 0.942 & 0.000 & 0.942 & 0.942 & 0.000 \\
+Attention U-Net + FNO & ResNet1D & 10.0 & No & 0.45 & - & - & 0.963 & - & - & 0.942 & - & - & 0.942 & - & - \\
+Attention U-Net + FNO & ResNet9 & 10.0 & No & 0.45 & - & - & 0.963 & - & - & 0.942 & - & - & 0.942 & - & - \\
+Attention U-Net + FNO & CF-ResNet9 & 10.0 & Yes & 0.45 & 0.46 & 1.4 & 0.963 & 0.965 & 0.001 & 0.942 & 0.957 & 0.015 & 0.942 & 0.957 & 0.015 \\
+Attention U-Net + FNO & CF-ResNet9 (train z-score) & 10.0 & Yes & 0.45 & 0.46 & 1.4 & 0.963 & 0.967 & 0.004 & 0.942 & 0.953 & 0.011 & 0.942 & 0.953 & 0.011 \\
+Attention U-Net + FNO & FNO-ResNet9 & 10.0 & Yes & 0.45 & 0.49 & 9.0 & 0.963 & 0.969 & 0.005 & 0.942 & 0.948 & 0.007 & 0.942 & 0.949 & 0.007 \\
+Attention U-Net + FNO & Spectral CNN & 10.0 & No & 0.45 & - & - & 0.963 & - & - & 0.942 & - & - & 0.942 & - & - \\
+Attention U-Net + FNO & Spectral CNN + FNO & 10.0 & Yes & 0.45 & 0.43 & -3.8 & 0.963 & 0.858 & -0.106 & 0.942 & 0.853 & -0.088 & 0.942 & 0.857 & -0.085 \\
+Attention U-Net + FNO & Spectral ViT & 10.0 & Yes & 0.45 & 0.41 & -9.3 & 0.963 & 0.900 & -0.063 & 0.942 & 0.890 & -0.052 & 0.942 & 0.888 & -0.054 \\
+Attention U-Net + FNO & Spectral ViT + FNO & 10.0 & No & 0.45 & - & - & 0.963 & - & - & 0.942 & - & - & 0.942 & - & - \\
+ResNet1D & Base U-Net & 10.0 & No & 1.00 & - & - & 0.909 & - & - & 0.904 & - & - & 0.904 & - & - \\
+ResNet1D & U-Net + FNO & 10.0 & Yes & 1.00 & 0.99 & -1.5 & 0.909 & 0.962 & 0.052 & 0.904 & 0.944 & 0.039 & 0.904 & 0.944 & 0.040 \\
+ResNet1D & Attention U-Net & 10.0 & No & 1.00 & - & - & 0.909 & - & - & 0.904 & - & - & 0.904 & - & - \\
+ResNet1D & Attention U-Net + FNO & 10.0 & Yes & 1.00 & 1.05 & 4.6 & 0.909 & 0.961 & 0.051 & 0.904 & 0.940 & 0.035 & 0.904 & 0.941 & 0.037 \\
+ResNet1D & ResNet1D & 10.0 & Yes & 1.00 & 1.00 & 0.0 & 0.909 & 0.909 & 0.000 & 0.904 & 0.904 & 0.000 & 0.904 & 0.904 & 0.000 \\
+ResNet1D & ResNet9 & 10.0 & No & 1.00 & - & - & 0.909 & - & - & 0.904 & - & - & 0.904 & - & - \\
+ResNet1D & CF-ResNet9 & 10.0 & No & 1.00 & - & - & 0.909 & - & - & 0.904 & - & - & 0.904 & - & - \\
+ResNet1D & CF-ResNet9 (train z-score) & 10.0 & No & 1.00 & - & - & 0.909 & - & - & 0.904 & - & - & 0.904 & - & - \\
+ResNet1D & FNO-ResNet9 & 10.0 & No & 1.00 & - & - & 0.909 & - & - & 0.904 & - & - & 0.904 & - & - \\
+ResNet1D & Spectral CNN & 10.0 & No & 1.00 & - & - & 0.909 & - & - & 0.904 & - & - & 0.904 & - & - \\
+ResNet1D & Spectral CNN + FNO & 10.0 & Yes & 1.00 & 1.09 & 8.3 & 0.909 & 0.857 & -0.053 & 0.904 & 0.866 & -0.039 & 0.904 & 0.865 & -0.039 \\
+ResNet1D & Spectral ViT & 10.0 & Yes & 1.00 & 0.92 & -8.6 & 0.909 & 0.898 & -0.011 & 0.904 & 0.908 & 0.004 & 0.904 & 0.909 & 0.005 \\
+ResNet1D & Spectral ViT + FNO & 10.0 & No & 1.00 & - & - & 0.909 & - & - & 0.904 & - & - & 0.904 & - & - \\
+ResNet9 & Base U-Net & 10.0 & Yes & 0.17 & 0.17 & -1.4 & 0.884 & 0.881 & -0.002 & 0.868 & 0.861 & -0.007 & 0.870 & 0.862 & -0.008 \\
+ResNet9 & U-Net + FNO & 10.0 & Yes & 0.17 & 0.18 & 8.4 & 0.884 & 0.957 & 0.073 & 0.868 & 0.940 & 0.072 & 0.870 & 0.941 & 0.071 \\
+ResNet9 & Attention U-Net & 10.0 & Yes & 0.17 & 0.17 & 1.8 & 0.884 & 0.870 & -0.014 & 0.868 & 0.856 & -0.011 & 0.870 & 0.858 & -0.012 \\
+ResNet9 & Attention U-Net + FNO & 10.0 & Yes & 0.17 & 0.19 & 9.3 & 0.884 & 0.953 & 0.069 & 0.868 & 0.942 & 0.074 & 0.870 & 0.942 & 0.072 \\
+ResNet9 & ResNet1D & 10.0 & No & 0.17 & - & - & 0.884 & - & - & 0.868 & - & - & 0.870 & - & - \\
+ResNet9 & ResNet9 & 10.0 & Yes & 0.17 & 0.17 & 0.0 & 0.884 & 0.884 & 0.000 & 0.868 & 0.868 & 0.000 & 0.870 & 0.870 & 0.000 \\
+ResNet9 & CF-ResNet9 & 10.0 & Yes & 0.17 & 0.16 & -3.3 & 0.884 & 0.969 & 0.085 & 0.868 & 0.946 & 0.078 & 0.870 & 0.947 & 0.077 \\
+ResNet9 & CF-ResNet9 (train z-score) & 10.0 & Yes & 0.17 & 0.16 & -3.3 & 0.884 & 0.969 & 0.085 & 0.868 & 0.936 & 0.068 & 0.870 & 0.937 & 0.067 \\
+ResNet9 & FNO-ResNet9 & 10.0 & Yes & 0.17 & 0.17 & 2.6 & 0.884 & 0.965 & 0.081 & 0.868 & 0.949 & 0.081 & 0.870 & 0.949 & 0.079 \\
+ResNet9 & Spectral CNN & 10.0 & No & 0.17 & - & - & 0.884 & - & - & 0.868 & - & - & 0.870 & - & - \\
+ResNet9 & Spectral CNN + FNO & 10.0 & No & 0.17 & - & - & 0.884 & - & - & 0.868 & - & - & 0.870 & - & - \\
+ResNet9 & Spectral ViT & 10.0 & No & 0.17 & - & - & 0.884 & - & - & 0.868 & - & - & 0.870 & - & - \\
+ResNet9 & Spectral ViT + FNO & 10.0 & No & 0.17 & - & - & 0.884 & - & - & 0.868 & - & - & 0.870 & - & - \\
+CF-ResNet9 & Base U-Net & 10.0 & Yes & 0.16 & 0.17 & 2.0 & 0.969 & 0.881 & -0.088 & 0.946 & 0.861 & -0.084 & 0.947 & 0.862 & -0.085 \\
+CF-ResNet9 & U-Net + FNO & 10.0 & No & 0.16 & - & - & 0.969 & - & - & 0.946 & - & - & 0.947 & - & - \\
+CF-ResNet9 & Attention U-Net & 10.0 & Yes & 0.16 & 0.17 & 5.3 & 0.969 & 0.870 & -0.099 & 0.946 & 0.856 & -0.089 & 0.947 & 0.858 & -0.089 \\
+CF-ResNet9 & Attention U-Net + FNO & 10.0 & Yes & 0.16 & 0.15 & -9.6 & 0.969 & 0.947 & -0.022 & 0.946 & 0.928 & -0.018 & 0.947 & 0.928 & -0.018 \\
+CF-ResNet9 & ResNet1D & 10.0 & No & 0.16 & - & - & 0.969 & - & - & 0.946 & - & - & 0.947 & - & - \\
+CF-ResNet9 & ResNet9 & 10.0 & Yes & 0.16 & 0.17 & 3.4 & 0.969 & 0.884 & -0.085 & 0.946 & 0.868 & -0.078 & 0.947 & 0.870 & -0.077 \\
+CF-ResNet9 & CF-ResNet9 & 10.0 & Yes & 0.16 & 0.16 & 0.0 & 0.969 & 0.969 & 0.000 & 0.946 & 0.946 & 0.000 & 0.947 & 0.947 & 0.000 \\
+CF-ResNet9 & CF-ResNet9 (train z-score) & 10.0 & Yes & 0.16 & 0.16 & 0.0 & 0.969 & 0.969 & 0.000 & 0.946 & 0.936 & -0.010 & 0.947 & 0.937 & -0.010 \\
+CF-ResNet9 & FNO-ResNet9 & 10.0 & Yes & 0.16 & 0.17 & 6.1 & 0.969 & 0.965 & -0.004 & 0.946 & 0.949 & 0.003 & 0.947 & 0.949 & 0.002 \\
+CF-ResNet9 & Spectral CNN & 10.0 & No & 0.16 & - & - & 0.969 & - & - & 0.946 & - & - & 0.947 & - & - \\
+CF-ResNet9 & Spectral CNN + FNO & 10.0 & No & 0.16 & - & - & 0.969 & - & - & 0.946 & - & - & 0.947 & - & - \\
+CF-ResNet9 & Spectral ViT & 10.0 & No & 0.16 & - & - & 0.969 & - & - & 0.946 & - & - & 0.947 & - & - \\
+CF-ResNet9 & Spectral ViT + FNO & 10.0 & No & 0.16 & - & - & 0.969 & - & - & 0.946 & - & - & 0.947 & - & - \\
+CF-ResNet9 (train z-score) & Base U-Net & 10.0 & Yes & 0.16 & 0.17 & 2.0 & 0.969 & 0.881 & -0.088 & 0.936 & 0.861 & -0.075 & 0.937 & 0.862 & -0.075 \\
+CF-ResNet9 (train z-score) & U-Net + FNO & 10.0 & No & 0.16 & - & - & 0.969 & - & - & 0.936 & - & - & 0.937 & - & - \\
+CF-ResNet9 (train z-score) & Attention U-Net & 10.0 & Yes & 0.16 & 0.17 & 5.3 & 0.969 & 0.870 & -0.099 & 0.936 & 0.856 & -0.080 & 0.937 & 0.858 & -0.079 \\
+CF-ResNet9 (train z-score) & Attention U-Net + FNO & 10.0 & Yes & 0.16 & 0.15 & -9.6 & 0.969 & 0.947 & -0.022 & 0.936 & 0.928 & -0.009 & 0.937 & 0.928 & -0.008 \\
+CF-ResNet9 (train z-score) & ResNet1D & 10.0 & No & 0.16 & - & - & 0.969 & - & - & 0.936 & - & - & 0.937 & - & - \\
+CF-ResNet9 (train z-score) & ResNet9 & 10.0 & Yes & 0.16 & 0.17 & 3.4 & 0.969 & 0.884 & -0.085 & 0.936 & 0.868 & -0.068 & 0.937 & 0.870 & -0.067 \\
+CF-ResNet9 (train z-score) & CF-ResNet9 & 10.0 & Yes & 0.16 & 0.16 & 0.0 & 0.969 & 0.969 & -0.000 & 0.936 & 0.946 & 0.010 & 0.937 & 0.947 & 0.010 \\
+CF-ResNet9 (train z-score) & CF-ResNet9 (train z-score) & 10.0 & Yes & 0.16 & 0.16 & 0.0 & 0.969 & 0.969 & 0.000 & 0.936 & 0.936 & 0.000 & 0.937 & 0.937 & 0.000 \\
+CF-ResNet9 (train z-score) & FNO-ResNet9 & 10.0 & Yes & 0.16 & 0.17 & 6.1 & 0.969 & 0.965 & -0.004 & 0.936 & 0.949 & 0.013 & 0.937 & 0.949 & 0.012 \\
+CF-ResNet9 (train z-score) & Spectral CNN & 10.0 & No & 0.16 & - & - & 0.969 & - & - & 0.936 & - & - & 0.937 & - & - \\
+CF-ResNet9 (train z-score) & Spectral CNN + FNO & 10.0 & No & 0.16 & - & - & 0.969 & - & - & 0.936 & - & - & 0.937 & - & - \\
+CF-ResNet9 (train z-score) & Spectral ViT & 10.0 & No & 0.16 & - & - & 0.969 & - & - & 0.936 & - & - & 0.937 & - & - \\
+CF-ResNet9 (train z-score) & Spectral ViT + FNO & 10.0 & No & 0.16 & - & - & 0.969 & - & - & 0.936 & - & - & 0.937 & - & - \\
+FNO-ResNet9 & Base U-Net & 10.0 & No & 0.49 & - & - & 0.969 & - & - & 0.948 & - & - & 0.949 & - & - \\
+FNO-ResNet9 & U-Net + FNO & 10.0 & Yes & 0.49 & 0.45 & -9.4 & 0.969 & 0.962 & -0.007 & 0.948 & 0.936 & -0.012 & 0.949 & 0.937 & -0.012 \\
+FNO-ResNet9 & Attention U-Net & 10.0 & No & 0.49 & - & - & 0.969 & - & - & 0.948 & - & - & 0.949 & - & - \\
+FNO-ResNet9 & Attention U-Net + FNO & 10.0 & Yes & 0.49 & 0.45 & -8.3 & 0.969 & 0.963 & -0.005 & 0.948 & 0.942 & -0.007 & 0.949 & 0.942 & -0.007 \\
+FNO-ResNet9 & ResNet1D & 10.0 & No & 0.49 & - & - & 0.969 & - & - & 0.948 & - & - & 0.949 & - & - \\
+FNO-ResNet9 & ResNet9 & 10.0 & No & 0.49 & - & - & 0.969 & - & - & 0.948 & - & - & 0.949 & - & - \\
+FNO-ResNet9 & CF-ResNet9 & 10.0 & Yes & 0.49 & 0.46 & -7.0 & 0.969 & 0.965 & -0.004 & 0.948 & 0.957 & 0.009 & 0.949 & 0.957 & 0.008 \\
+FNO-ResNet9 & CF-ResNet9 (train z-score) & 10.0 & Yes & 0.49 & 0.46 & -7.0 & 0.969 & 0.967 & -0.001 & 0.948 & 0.953 & 0.004 & 0.949 & 0.953 & 0.004 \\
+FNO-ResNet9 & FNO-ResNet9 & 10.0 & Yes & 0.49 & 0.49 & 0.0 & 0.969 & 0.969 & 0.000 & 0.948 & 0.948 & 0.000 & 0.949 & 0.949 & 0.000 \\
+FNO-ResNet9 & Spectral CNN & 10.0 & No & 0.49 & - & - & 0.969 & - & - & 0.948 & - & - & 0.949 & - & - \\
+FNO-ResNet9 & Spectral CNN + FNO & 10.0 & No & 0.49 & - & - & 0.969 & - & - & 0.948 & - & - & 0.949 & - & - \\
+FNO-ResNet9 & Spectral ViT & 10.0 & No & 0.49 & - & - & 0.969 & - & - & 0.948 & - & - & 0.949 & - & - \\
+FNO-ResNet9 & Spectral ViT + FNO & 10.0 & No & 0.49 & - & - & 0.969 & - & - & 0.948 & - & - & 0.949 & - & - \\
+Spectral CNN & Base U-Net & 10.0 & No & 0.23 & - & - & 0.605 & - & - & 0.566 & - & - & 0.570 & - & - \\
+Spectral CNN & U-Net + FNO & 10.0 & Yes & 0.23 & 0.25 & 7.7 & 0.605 & 0.951 & 0.346 & 0.566 & 0.931 & 0.366 & 0.570 & 0.933 & 0.362 \\
+Spectral CNN & Attention U-Net & 10.0 & No & 0.23 & - & - & 0.605 & - & - & 0.566 & - & - & 0.570 & - & - \\
+Spectral CNN & Attention U-Net + FNO & 10.0 & Yes & 0.23 & 0.25 & 8.3 & 0.605 & 0.952 & 0.347 & 0.566 & 0.942 & 0.376 & 0.570 & 0.942 & 0.372 \\
+Spectral CNN & ResNet1D & 10.0 & Yes & 0.23 & 0.25 & 9.4 & 0.605 & 0.902 & 0.297 & 0.566 & 0.894 & 0.328 & 0.570 & 0.893 & 0.323 \\
+Spectral CNN & ResNet9 & 10.0 & No & 0.23 & - & - & 0.605 & - & - & 0.566 & - & - & 0.570 & - & - \\
+Spectral CNN & CF-ResNet9 & 10.0 & No & 0.23 & - & - & 0.605 & - & - & 0.566 & - & - & 0.570 & - & - \\
+Spectral CNN & CF-ResNet9 (train z-score) & 10.0 & No & 0.23 & - & - & 0.605 & - & - & 0.566 & - & - & 0.570 & - & - \\
+Spectral CNN & FNO-ResNet9 & 10.0 & Yes & 0.23 & 0.22 & -4.9 & 0.605 & 0.966 & 0.361 & 0.566 & 0.946 & 0.381 & 0.570 & 0.947 & 0.376 \\
+Spectral CNN & Spectral CNN & 10.0 & Yes & 0.23 & 0.23 & 0.0 & 0.605 & 0.605 & 0.000 & 0.566 & 0.566 & 0.000 & 0.570 & 0.570 & 0.000 \\
+Spectral CNN & Spectral CNN + FNO & 10.0 & No & 0.23 & - & - & 0.605 & - & - & 0.566 & - & - & 0.570 & - & - \\
+Spectral CNN & Spectral ViT & 10.0 & No & 0.23 & - & - & 0.605 & - & - & 0.566 & - & - & 0.570 & - & - \\
+Spectral CNN & Spectral ViT + FNO & 10.0 & No & 0.23 & - & - & 0.605 & - & - & 0.566 & - & - & 0.570 & - & - \\
+Spectral CNN + FNO & Base U-Net & 10.0 & No & 3.30 & - & - & 0.883 & - & - & 0.866 & - & - & 0.867 & - & - \\
+Spectral CNN + FNO & U-Net + FNO & 10.0 & No & 3.30 & - & - & 0.883 & - & - & 0.866 & - & - & 0.867 & - & - \\
+Spectral CNN + FNO & Attention U-Net & 10.0 & No & 3.30 & - & - & 0.883 & - & - & 0.866 & - & - & 0.867 & - & - \\
+Spectral CNN + FNO & Attention U-Net + FNO & 10.0 & No & 3.30 & - & - & 0.883 & - & - & 0.866 & - & - & 0.867 & - & - \\
+Spectral CNN + FNO & ResNet1D & 10.0 & No & 3.30 & - & - & 0.883 & - & - & 0.866 & - & - & 0.867 & - & - \\
+Spectral CNN + FNO & ResNet9 & 10.0 & No & 3.30 & - & - & 0.883 & - & - & 0.866 & - & - & 0.867 & - & - \\
+Spectral CNN + FNO & CF-ResNet9 & 10.0 & No & 3.30 & - & - & 0.883 & - & - & 0.866 & - & - & 0.867 & - & - \\
+Spectral CNN + FNO & CF-ResNet9 (train z-score) & 10.0 & No & 3.30 & - & - & 0.883 & - & - & 0.866 & - & - & 0.867 & - & - \\
+Spectral CNN + FNO & FNO-ResNet9 & 10.0 & No & 3.30 & - & - & 0.883 & - & - & 0.866 & - & - & 0.867 & - & - \\
+Spectral CNN + FNO & Spectral CNN & 10.0 & No & 3.30 & - & - & 0.883 & - & - & 0.866 & - & - & 0.867 & - & - \\
+Spectral CNN + FNO & Spectral CNN + FNO & 10.0 & Yes & 3.30 & 3.30 & 0.0 & 0.883 & 0.883 & 0.000 & 0.866 & 0.866 & 0.000 & 0.867 & 0.867 & 0.000 \\
+Spectral CNN + FNO & Spectral ViT & 10.0 & No & 3.30 & - & - & 0.883 & - & - & 0.866 & - & - & 0.867 & - & - \\
+Spectral CNN + FNO & Spectral ViT + FNO & 10.0 & Yes & 3.30 & 3.05 & -7.5 & 0.883 & 0.926 & 0.044 & 0.866 & 0.906 & 0.039 & 0.867 & 0.906 & 0.040 \\
+Spectral ViT & Base U-Net & 10.0 & Yes & 0.41 & 0.37 & -9.4 & 0.900 & 0.883 & -0.017 & 0.890 & 0.861 & -0.029 & 0.888 & 0.862 & -0.026 \\
+Spectral ViT & U-Net + FNO & 10.0 & Yes & 0.41 & 0.45 & 8.9 & 0.900 & 0.962 & 0.062 & 0.890 & 0.936 & 0.047 & 0.888 & 0.937 & 0.048 \\
+Spectral ViT & Attention U-Net & 10.0 & Yes & 0.41 & 0.38 & -6.5 & 0.900 & 0.870 & -0.030 & 0.890 & 0.862 & -0.028 & 0.888 & 0.864 & -0.025 \\
+Spectral ViT & Attention U-Net + FNO & 10.0 & No & 0.41 & - & - & 0.900 & - & - & 0.890 & - & - & 0.888 & - & - \\
+Spectral ViT & ResNet1D & 10.0 & No & 0.41 & - & - & 0.900 & - & - & 0.890 & - & - & 0.888 & - & - \\
+Spectral ViT & ResNet9 & 10.0 & No & 0.41 & - & - & 0.900 & - & - & 0.890 & - & - & 0.888 & - & - \\
+Spectral ViT & CF-ResNet9 & 10.0 & No & 0.41 & - & - & 0.900 & - & - & 0.890 & - & - & 0.888 & - & - \\
+Spectral ViT & CF-ResNet9 (train z-score) & 10.0 & No & 0.41 & - & - & 0.900 & - & - & 0.890 & - & - & 0.888 & - & - \\
+Spectral ViT & FNO-ResNet9 & 10.0 & Yes & 0.41 & 0.39 & -5.2 & 0.900 & 0.962 & 0.061 & 0.890 & 0.948 & 0.058 & 0.888 & 0.948 & 0.060 \\
+Spectral ViT & Spectral CNN & 10.0 & No & 0.41 & - & - & 0.900 & - & - & 0.890 & - & - & 0.888 & - & - \\
+Spectral ViT & Spectral CNN + FNO & 10.0 & Yes & 0.41 & 0.43 & 6.0 & 0.900 & 0.858 & -0.042 & 0.890 & 0.853 & -0.036 & 0.888 & 0.857 & -0.031 \\
+Spectral ViT & Spectral ViT & 10.0 & Yes & 0.41 & 0.41 & 0.0 & 0.900 & 0.900 & 0.000 & 0.890 & 0.890 & 0.000 & 0.888 & 0.888 & 0.000 \\
+Spectral ViT & Spectral ViT + FNO & 10.0 & No & 0.41 & - & - & 0.900 & - & - & 0.890 & - & - & 0.888 & - & - \\
+Spectral ViT + FNO & Base U-Net & 10.0 & No & 10.13 & - & - & 0.927 & - & - & 0.922 & - & - & 0.924 & - & - \\
+Spectral ViT + FNO & U-Net + FNO & 10.0 & No & 10.13 & - & - & 0.927 & - & - & 0.922 & - & - & 0.924 & - & - \\
+Spectral ViT + FNO & Attention U-Net & 10.0 & No & 10.13 & - & - & 0.927 & - & - & 0.922 & - & - & 0.924 & - & - \\
+Spectral ViT + FNO & Attention U-Net + FNO & 10.0 & No & 10.13 & - & - & 0.927 & - & - & 0.922 & - & - & 0.924 & - & - \\
+Spectral ViT + FNO & ResNet1D & 10.0 & No & 10.13 & - & - & 0.927 & - & - & 0.922 & - & - & 0.924 & - & - \\
+Spectral ViT + FNO & ResNet9 & 10.0 & No & 10.13 & - & - & 0.927 & - & - & 0.922 & - & - & 0.924 & - & - \\
+Spectral ViT + FNO & CF-ResNet9 & 10.0 & No & 10.13 & - & - & 0.927 & - & - & 0.922 & - & - & 0.924 & - & - \\
+Spectral ViT + FNO & CF-ResNet9 (train z-score) & 10.0 & No & 10.13 & - & - & 0.927 & - & - & 0.922 & - & - & 0.924 & - & - \\
+Spectral ViT + FNO & FNO-ResNet9 & 10.0 & No & 10.13 & - & - & 0.927 & - & - & 0.922 & - & - & 0.924 & - & - \\
+Spectral ViT + FNO & Spectral CNN & 10.0 & No & 10.13 & - & - & 0.927 & - & - & 0.922 & - & - & 0.924 & - & - \\
+Spectral ViT + FNO & Spectral CNN + FNO & 10.0 & Yes & 10.13 & 9.74 & -3.8 & 0.927 & 0.865 & -0.062 & 0.922 & 0.864 & -0.059 & 0.924 & 0.864 & -0.060 \\
+Spectral ViT + FNO & Spectral ViT & 10.0 & No & 10.13 & - & - & 0.927 & - & - & 0.922 & - & - & 0.924 & - & - \\
+Spectral ViT + FNO & Spectral ViT + FNO & 10.0 & Yes & 10.13 & 10.13 & 0.0 & 0.927 & 0.927 & 0.000 & 0.922 & 0.922 & 0.000 & 0.924 & 0.924 & 0.000 \\
+\end{longtable}

@@ -86,4 +86,7 @@ ECG5000-es adathalmazt használókat keresni és idézni.
 
 
 
-Technikai kérdések: Váltunk-e bináris klasszifikációra, vagy csak nézzük azt is?
+Technikai kérdések: 
+    
+    Váltunk-e bináris klasszifikációra, vagy csak nézzük azt is?
+    Normalizálásnál epsilon-t kivegyem-e? 

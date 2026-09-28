@@ -1,0 +1,44 @@
+\begin{longtable}{lllllllllllllllll}
+\caption{Held-out binary normal-versus-abnormal performance for ECG5000 and PTB-XL.} \label{tab:binary_normal_abnormal_all_datasets} \\
+\toprule
+Dataset & Architecture name & Model seed & Normal class & Positive class & Binary accuracy & Binary F1 & Binary balanced accuracy & Sensitivity & Specificity & Positive precision & AUROC & AUPRC & TP & TN & FP & FN \\
+\midrule
+\endfirsthead
+\caption[]{Held-out binary normal-versus-abnormal performance for ECG5000 and PTB-XL.} \\
+\toprule
+Dataset & Architecture name & Model seed & Normal class & Positive class & Binary accuracy & Binary F1 & Binary balanced accuracy & Sensitivity & Specificity & Positive precision & AUROC & AUPRC & TP & TN & FP & FN \\
+\midrule
+\endhead
+\midrule
+\multicolumn{17}{r}{Continued on next page} \\
+\midrule
+\endfoot
+\bottomrule
+\endlastfoot
+ECG5000 & Base U-Net & 42 & 1 & abnormal (ECG5000 classes 2-5) & 0.993 & 0.992 & 0.993 & 0.993 & 0.993 & 0.990 & 0.999 & 0.999 & 413 & 580 & 4 & 3 \\
+ECG5000 & U-Net + FNO & 0 & 1 & abnormal (ECG5000 classes 2-5) & 0.996 & 0.995 & 0.996 & 0.995 & 0.997 & 0.995 & 1.000 & 1.000 & 414 & 582 & 2 & 2 \\
+ECG5000 & Attention U-Net & 7 & 1 & abnormal (ECG5000 classes 2-5) & 0.989 & 0.987 & 0.987 & 0.974 & 1.000 & 1.000 & 1.000 & 0.999 & 405 & 584 & 0 & 11 \\
+ECG5000 & Attention U-Net + FNO & 42 & 1 & abnormal (ECG5000 classes 2-5) & 0.998 & 0.998 & 0.998 & 0.995 & 1.000 & 1.000 & 1.000 & 1.000 & 414 & 584 & 0 & 2 \\
+ECG5000 & ResNet1D & 7 & 1 & abnormal (ECG5000 classes 2-5) & 0.996 & 0.995 & 0.995 & 0.990 & 1.000 & 1.000 & 1.000 & 0.999 & 412 & 584 & 0 & 4 \\
+ECG5000 & ResNet9 & 7 & 1 & abnormal (ECG5000 classes 2-5) & 0.992 & 0.990 & 0.991 & 0.986 & 0.997 & 0.995 & 1.000 & 0.999 & 410 & 582 & 2 & 6 \\
+ECG5000 & CF-ResNet9 & 0 & 1 & abnormal (ECG5000 classes 2-5) & 0.996 & 0.995 & 0.996 & 0.995 & 0.997 & 0.995 & 1.000 & 1.000 & 414 & 582 & 2 & 2 \\
+ECG5000 & CF-ResNet9 (train z-score) & 7 & 1 & abnormal (ECG5000 classes 2-5) & 0.996 & 0.995 & 0.996 & 0.993 & 0.998 & 0.998 & 1.000 & 1.000 & 413 & 583 & 1 & 3 \\
+ECG5000 & FNO-ResNet9 & 0 & 1 & abnormal (ECG5000 classes 2-5) & 0.996 & 0.995 & 0.996 & 0.993 & 0.998 & 0.998 & 1.000 & 1.000 & 413 & 583 & 1 & 3 \\
+ECG5000 & Spectral CNN & 7 & 1 & abnormal (ECG5000 classes 2-5) & 0.990 & 0.988 & 0.989 & 0.981 & 0.997 & 0.995 & 0.999 & 0.999 & 408 & 582 & 2 & 8 \\
+ECG5000 & Spectral CNN + FNO & 0 & 1 & abnormal (ECG5000 classes 2-5) & 0.995 & 0.994 & 0.994 & 0.988 & 1.000 & 1.000 & 1.000 & 1.000 & 411 & 584 & 0 & 5 \\
+ECG5000 & Spectral ViT & 0 & 1 & abnormal (ECG5000 classes 2-5) & 0.991 & 0.989 & 0.989 & 0.978 & 1.000 & 1.000 & 1.000 & 1.000 & 407 & 584 & 0 & 9 \\
+ECG5000 & Spectral ViT + FNO & 0 & 1 & abnormal (ECG5000 classes 2-5) & 0.992 & 0.990 & 0.991 & 0.983 & 0.998 & 0.998 & 0.999 & 0.999 & 409 & 583 & 1 & 7 \\
+PTB-XL (Lead II, binary) & Base U-Net & 42 & NORM & ABNORMAL & 0.808 & 0.827 & 0.811 & 0.792 & 0.830 & 0.864 & 0.888 & 0.927 & 987 & 757 & 155 & 259 \\
+PTB-XL (Lead II, binary) & U-Net + FNO & 42 & NORM & ABNORMAL & 0.808 & 0.826 & 0.812 & 0.787 & 0.837 & 0.868 & 0.884 & 0.922 & 981 & 763 & 149 & 265 \\
+PTB-XL (Lead II, binary) & Attention U-Net & 0 & NORM & ABNORMAL & 0.802 & 0.815 & 0.810 & 0.757 & 0.863 & 0.883 & 0.891 & 0.927 & 943 & 787 & 125 & 303 \\
+PTB-XL (Lead II, binary) & Attention U-Net + FNO & 7 & NORM & ABNORMAL & 0.809 & 0.824 & 0.815 & 0.775 & 0.854 & 0.879 & 0.889 & 0.928 & 966 & 779 & 133 & 280 \\
+PTB-XL (Lead II, binary) & ResNet1D & 0 & NORM & ABNORMAL & 0.806 & 0.824 & 0.809 & 0.787 & 0.832 & 0.865 & 0.887 & 0.928 & 980 & 759 & 153 & 266 \\
+PTB-XL (Lead II, binary) & ResNet9 & 0 & NORM & ABNORMAL & 0.804 & 0.820 & 0.808 & 0.777 & 0.840 & 0.869 & 0.884 & 0.921 & 968 & 766 & 146 & 278 \\
+PTB-XL (Lead II, binary) & CF-ResNet9 & 7 & NORM & ABNORMAL & 0.800 & 0.817 & 0.806 & 0.771 & 0.840 & 0.868 & 0.887 & 0.926 & 961 & 766 & 146 & 285 \\
+PTB-XL (Lead II, binary) & CF-ResNet9 (train z-score) & 0 & NORM & ABNORMAL & 0.792 & 0.810 & 0.798 & 0.764 & 0.831 & 0.861 & 0.876 & 0.919 & 952 & 758 & 154 & 294 \\
+PTB-XL (Lead II, binary) & FNO-ResNet9 & 7 & NORM & ABNORMAL & 0.799 & 0.824 & 0.797 & 0.815 & 0.779 & 0.834 & 0.881 & 0.920 & 1015 & 710 & 202 & 231 \\
+PTB-XL (Lead II, binary) & Spectral CNN & 0 & NORM & ABNORMAL & 0.785 & 0.801 & 0.792 & 0.748 & 0.836 & 0.861 & 0.876 & 0.917 & 932 & 762 & 150 & 314 \\
+PTB-XL (Lead II, binary) & Spectral CNN + FNO & 0 & NORM & ABNORMAL & 0.792 & 0.810 & 0.797 & 0.765 & 0.830 & 0.860 & 0.878 & 0.920 & 953 & 757 & 155 & 293 \\
+PTB-XL (Lead II, binary) & Spectral ViT & 0 & NORM & ABNORMAL & 0.775 & 0.792 & 0.781 & 0.741 & 0.821 & 0.850 & 0.859 & 0.904 & 923 & 749 & 163 & 323 \\
+PTB-XL (Lead II, binary) & Spectral ViT + FNO & 7 & NORM & ABNORMAL & 0.778 & 0.797 & 0.782 & 0.755 & 0.809 & 0.844 & 0.855 & 0.901 & 941 & 738 & 174 & 305 \\
+\end{longtable}

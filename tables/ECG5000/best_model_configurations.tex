@@ -1,0 +1,23 @@
+\begin{table}
+\caption{Configurations of validation-selected family winners for ECG5000.}
+\label{tab:ecg5000_best_model_configurations}
+\begin{tabular}{llllllllllllllll}
+\toprule
+Dataset & Architecture name & Family key & Base width & Learning rate & Weight decay & Dropout & Normalization & LR scheduler & Warmup epochs & Training regime & Model seed & Split seed & Architecture-specific configuration & Run ID & Config key \\
+\midrule
+ECG5000 & Base U-Net & base\_unet & 48 & 0.0005 & 0 & 0.00 & per\_sample\_zscore & none & 0 & e50 & 42 & 42 & - & run\_093 & e795e560f074ff00b8fd1ec3d53a7333 \\
+ECG5000 & U-Net + FNO & unet\_fno & 32 & 0.001 & 0.0001 & 0.00 & per\_sample\_zscore & none & 0 & e50 & 0 & 42 & modes=24; fno\_layers=2 & run\_286 & 8c58c3845cd2b8bb4843440355cc50cd \\
+ECG5000 & Attention U-Net & att\_unet & 48 & 0.001 & 0 & 0.20 & per\_sample\_zscore & cosine\_warmup & 5 & e50 & 7 & 42 & - & run\_268 & 6a1fbdc46635164692819024318e3d6a \\
+ECG5000 & Attention U-Net + FNO & att\_unet\_fno & 32 & 0.001 & 0.0001 & 0.00 & per\_sample\_zscore & cosine\_warmup & 5 & e50 & 42 & 42 & modes=16; fno\_layers=1 & run\_1206 & 2a7436a9be54e00394967956a3b03c76 \\
+ECG5000 & ResNet1D & resnet1d & 16 & 0.001 & 0 & 0.10 & per\_sample\_zscore & none & 0 & e50 & 7 & 42 & - & run\_005 & fd786b2569727ece094206b651acd869 \\
+ECG5000 & ResNet9 & resnet9 & 48 & 0.0005 & 0.0001 & 0.10 & per\_sample\_zscore & cosine\_warmup & 5 & e50 & 7 & 42 & - & run\_316 & 427a06b4c95ede8738bd66a981c92884 \\
+ECG5000 & CF-ResNet9 & cf\_resnet9 & 16 & 0.0005 & 0.0001 & 0.00 & per\_sample\_zscore & none & 0 & e50 & 0 & 42 & modes=24 & run\_088 & 8ae239da1f97c60a39a5bd2f9f3b66ca \\
+ECG5000 & CF-ResNet9 (train z-score) & cf\_resnet9\_train\_zscore & 48 & 0.0005 & 0.0001 & 0.20 & train\_global\_zscore & cosine & 0 & e50 & 7 & 42 & modes=8 & run\_950 & def7e83405255b80ebadba73b7274f13 \\
+ECG5000 & FNO-ResNet9 & fno\_resnet9 & 32 & 0.0005 & 0.0001 & 0.10 & per\_sample\_zscore & none & 0 & e50 & 0 & 42 & modes=24; fno\_layers=1 & run\_409 & f15e2dc12c9e6a50c55114731a370525 \\
+ECG5000 & Spectral CNN & spec\_cnn & 48 & 0.001 & 0.0001 & 0.10 & per\_sample\_zscore & none & 0 & e50 & 7 & 42 & n\_fft=64; hop\_length=8 & run\_518 & daa4ba8a434a54d1d561fd68f1ac899f \\
+ECG5000 & Spectral CNN + FNO & spec\_cnn\_fno & 16 & 0.001 & 0 & 0.10 & per\_sample\_zscore & none & 0 & e50 & 0 & 42 & n\_fft=32; hop\_length=4; modes\_h=8; modes\_w=8; fno\_layers\_2d=2 & run\_229 & 2e6b1cb4ac933df4714c0cedb7e89013 \\
+ECG5000 & Spectral ViT & spec\_vit & 48 & 0.0005 & 0.0001 & 0.10 & per\_sample\_zscore & none & 0 & e50 & 0 & 42 & n\_fft=32; hop\_length=8; patch\_size=[4, 2]; vit\_depth=3; num\_heads=4; mlp\_ratio=2 & run\_196 & 4ae84b5dc0657af6c08a560ce7c66786 \\
+ECG5000 & Spectral ViT + FNO & spec\_vit\_fno & 32 & 0.0005 & 0.0001 & 0.10 & per\_sample\_zscore & none & 0 & e50 & 0 & 42 & n\_fft=32; hop\_length=8; patch\_size=[4, 2]; vit\_depth=2; num\_heads=4; mlp\_ratio=2; modes\_h=16; modes\_w=8; fno\_layers\_2d=2 & run\_406 & 7e14faa8e0dd4e27af310a7d2b16f127 \\
+\bottomrule
+\end{tabular}
+\end{table}

@@ -1,0 +1,23 @@
+\begin{table}
+\caption{Validation-selected family winners for PTB-XL Lead II (binary).}
+\label{tab:ptbxl_leadii_binary_best_model_performance}
+\begin{tabular}{lllllllllllll}
+\toprule
+Dataset & Architecture name & Family key & Selection metric & Validation macro-F1 & Test macro-F1 & Test balanced accuracy & Test accuracy & Parameters (M) & Training regime & Model seed & Run ID & Config key \\
+\midrule
+PTBXL\_LEADII\_BINARY & Base U-Net & base\_unet & val\_macro\_f1 & 0.821 & 0.806 & 0.811 & 0.808 & 0.164 & e50 & 42 & run\_162 & 27cb314dcbd595cf9998b0b467ac5852 \\
+PTBXL\_LEADII\_BINARY & U-Net + FNO & unet\_fno & val\_macro\_f1 & 0.819 & 0.806 & 0.812 & 0.808 & 0.116 & e50 & 42 & run\_612 & 11841490316752c4177a7d589c5997c4 \\
+PTBXL\_LEADII\_BINARY & Attention U-Net & att\_unet & val\_macro\_f1 & 0.820 & 0.801 & 0.810 & 0.802 & 0.170 & e50 & 0 & run\_147 & fc349b1603ebd800f229ce52c6343e8c \\
+PTBXL\_LEADII\_BINARY & Attention U-Net + FNO & att\_unet\_fno & val\_macro\_f1 & 0.821 & 0.807 & 0.815 & 0.809 & 0.713 & e50 & 7 & run\_1572 & 13841d97dd4c70ed379e811fbf29243c \\
+PTBXL\_LEADII\_BINARY & ResNet1D & resnet1d & val\_macro\_f1 & 0.822 & 0.804 & 0.809 & 0.806 & 0.997 & e50 & 0 & run\_145 & a8caee1b7617198f22d3250e3b10113c \\
+PTBXL\_LEADII\_BINARY & ResNet9 & resnet9 & val\_macro\_f1 & 0.818 & 0.802 & 0.808 & 0.804 & 0.074 & e50 & 0 & run\_145 & 0f1e114f97c2c702893fe81387ca1b51 \\
+PTBXL\_LEADII\_BINARY & CF-ResNet9 & cf\_resnet9 & val\_macro\_f1 & 0.820 & 0.799 & 0.806 & 0.800 & 0.362 & e50 & 7 & run\_717 & 31c4f14df9f2807fe526f3c66bce5085 \\
+PTBXL\_LEADII\_BINARY & CF-ResNet9 (train z-score) & cf\_resnet9\_train\_zscore & val\_macro\_f1 & 0.823 & 0.791 & 0.798 & 0.792 & 0.454 & e50 & 0 & run\_777 & fb5449c823b0c51fa97bd4001e535c4e \\
+PTBXL\_LEADII\_BINARY & FNO-ResNet9 & fno\_resnet9 & val\_macro\_f1 & 0.820 & 0.795 & 0.797 & 0.799 & 0.043 & e50 & 7 & run\_148 & 7d465d69f43e40359d892d0c0ae35edb \\
+PTBXL\_LEADII\_BINARY & Spectral CNN & spec\_cnn & val\_macro\_f1 & 0.825 & 0.784 & 0.792 & 0.785 & 0.102 & e50 & 0 & run\_1117 & 6976ebfc91152cf7239240f668ace506 \\
+PTBXL\_LEADII\_BINARY & Spectral CNN + FNO & spec\_cnn\_fno & val\_macro\_f1 & 0.813 & 0.791 & 0.797 & 0.792 & 0.296 & e50 & 0 & run\_1585 & e9978ce01c82ee7ec4a02592e0ffa896 \\
+PTBXL\_LEADII\_BINARY & Spectral ViT & spec\_vit & val\_macro\_f1 & 0.805 & 0.773 & 0.781 & 0.775 & 0.406 & e50 & 0 & run\_532 & 51d42d152df9ca56f80076bd36cb5bee \\
+PTBXL\_LEADII\_BINARY & Spectral ViT + FNO & spec\_vit\_fno & val\_macro\_f1 & 0.804 & 0.776 & 0.782 & 0.778 & 0.205 & e50 & 7 & run\_364 & 864357ab8ceafb4c468a651d05a8ab6b \\
+\bottomrule
+\end{tabular}
+\end{table}

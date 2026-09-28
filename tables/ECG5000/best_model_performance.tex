@@ -1,0 +1,23 @@
+\begin{table}
+\caption{Validation-selected family winners for ECG5000.}
+\label{tab:ecg5000_best_model_performance}
+\begin{tabular}{lllllllllllll}
+\toprule
+Dataset & Architecture name & Family key & Selection metric & Validation macro-F1 & Test macro-F1 & Test balanced accuracy & Test accuracy & Parameters (M) & Training regime & Model seed & Run ID & Config key \\
+\midrule
+ECG5000 & Base U-Net & base\_unet & val\_macro\_f1 & 0.664 & 0.696 & 0.667 & 0.943 & 0.369 & e50 & 42 & run\_093 & e795e560f074ff00b8fd1ec3d53a7333 \\
+ECG5000 & U-Net + FNO & unet\_fno & val\_macro\_f1 & 0.740 & 0.667 & 0.622 & 0.953 & 0.984 & e50 & 0 & run\_286 & 8c58c3845cd2b8bb4843440355cc50cd \\
+ECG5000 & Attention U-Net & att\_unet & val\_macro\_f1 & 0.650 & 0.592 & 0.596 & 0.944 & 0.381 & e50 & 7 & run\_268 & 6a1fbdc46635164692819024318e3d6a \\
+ECG5000 & Attention U-Net + FNO & att\_unet\_fno & val\_macro\_f1 & 0.705 & 0.569 & 0.563 & 0.940 & 0.449 & e50 & 42 & run\_1206 & 2a7436a9be54e00394967956a3b03c76 \\
+ECG5000 & ResNet1D & resnet1d & val\_macro\_f1 & 0.738 & 0.579 & 0.565 & 0.941 & 0.251 & e50 & 7 & run\_005 & fd786b2569727ece094206b651acd869 \\
+ECG5000 & ResNet9 & resnet9 & val\_macro\_f1 & 0.718 & 0.580 & 0.587 & 0.929 & 0.166 & e50 & 7 & run\_316 & 427a06b4c95ede8738bd66a981c92884 \\
+ECG5000 & CF-ResNet9 & cf\_resnet9 & val\_macro\_f1 & 0.752 & 0.593 & 0.577 & 0.946 & 0.051 & e50 & 0 & run\_088 & 8ae239da1f97c60a39a5bd2f9f3b66ca \\
+ECG5000 & CF-ResNet9 (train z-score) & cf\_resnet9\_train\_zscore & val\_macro\_f1 & 0.750 & 0.605 & 0.585 & 0.950 & 0.270 & e50 & 7 & run\_950 & def7e83405255b80ebadba73b7274f13 \\
+ECG5000 & FNO-ResNet9 & fno\_resnet9 & val\_macro\_f1 & 0.772 & 0.716 & 0.668 & 0.954 & 0.171 & e50 & 0 & run\_409 & f15e2dc12c9e6a50c55114731a370525 \\
+ECG5000 & Spectral CNN & spec\_cnn & val\_macro\_f1 & 0.725 & 0.622 & 0.582 & 0.943 & 0.228 & e50 & 7 & run\_518 & daa4ba8a434a54d1d561fd68f1ac899f \\
+ECG5000 & Spectral CNN + FNO & spec\_cnn\_fno & val\_macro\_f1 & 0.792 & 0.574 & 0.544 & 0.948 & 0.559 & e50 & 0 & run\_229 & 2e6b1cb4ac933df4714c0cedb7e89013 \\
+ECG5000 & Spectral ViT & spec\_vit & val\_macro\_f1 & 0.742 & 0.633 & 0.604 & 0.949 & 0.912 & e50 & 0 & run\_196 & 4ae84b5dc0657af6c08a560ce7c66786 \\
+ECG5000 & Spectral ViT + FNO & spec\_vit\_fno & val\_macro\_f1 & 0.753 & 0.584 & 0.554 & 0.945 & 4.503 & e50 & 0 & run\_406 & 7e14faa8e0dd4e27af310a7d2b16f127 \\
+\bottomrule
+\end{tabular}
+\end{table}
