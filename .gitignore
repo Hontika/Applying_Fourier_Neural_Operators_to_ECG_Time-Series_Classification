@@ -1,7 +1,22 @@
-Data/
-unet/
+# Local environment and generated Python files
+/Unet/
+/.venv/
+/venv/
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+
+# Datasets, model outputs, analyses, and manuscript material
+/Data/
 /models/
-chat_context.md
-Manuscript
-reports
-HM_megjegyzesek_260528.txt
+/splits/
+/tables/
+/figs/
+/Documents/
+/reports/
+/Manuscript/
+/LaTeX/
+/*.pdf
+/TODO.txt
+/HM_megjegyzesek_260528.txt
+/chat_context.md
